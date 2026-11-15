@@ -59,6 +59,7 @@ The player must never be able to learn an image's location before guessing.
 - Then look at a random sample of 30 to 40 kept images yourself and tune the filters until nearly all are clearly playable: outdoors, recognizable, not blurry, not just pavement or a car hood. Report the final image count and how coverage is spread across campus, including any thin areas.
 - Write a second script (required, Mapillary alone is too thin) for Wikimedia Commons geotagged photos inside the polygon. Accept only CC0, CC BY, and CC BY SA licenses.
 - Write a third script that imports my own phone photos from a gitignored `/photos-inbox` folder. It reads GPS, and compass heading if present, from EXIF, strips all metadata, and runs the photos through the same pipeline and filters with source `original`. I will shoot the Hill and the northwest, where open imagery has no coverage.
+- The photo import includes a dev-only page that shows each of my imported photos pinned on the map, so I can drag a pin to correct the location before the photo goes live. Phone GPS is unreliable near the Hill towers. Imported photos stay out of the game until I have reviewed them there.
 
 ## Phase 2: Single player
 

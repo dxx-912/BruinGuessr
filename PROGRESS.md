@@ -4,19 +4,14 @@ Read SPEC.md first, then this file.
 
 ## Where things stand
 
-**Phase 0 (campus boundary): built, waiting for Daniel's boundary decision. Not yet pushed.**
+**Phase 0 (campus boundary): done and approved 2026-11-15.**
 
-- `npm run campus:build` builds `data/campus-areas.geojson` (every candidate area) and `data/campus.geojson` (the boundary) from OpenStreetMap relation 7493269. Which flagged areas are in is set in `data/campus-selection.json`; edit it and re-run.
+- Approved boundary: main campus and the Hill, with the medical center, Drake Stadium and Sunset Canyon Rec kept in; Southwest campus (Weyburn Terrace) and the five Westwood Village buildings left out. **D = 2,297.5 m.**
+- `npm run campus:build` rebuilds `data/campus-areas.geojson` and `data/campus.geojson` from OpenStreetMap relation 7493269. Which flagged areas are in is set in `data/campus-selection.json`.
 - `npm run campus:probe` writes photo positions to `.cache/review/photo-dots.json` (gitignored) for the review page.
 - Review page: `npm run dev`, then http://localhost:3000/dev/boundary (development only, 404 in production).
-- Current provisional boundary: main campus and the Hill, with medical center, Drake Stadium and Sunset Canyon Rec kept in; Southwest campus (Weyburn Terrace) and the five Westwood Village buildings left out. D = 2,297.5 m.
-- `npm test` (27 tests), `npm run typecheck` and `npx eslint` all pass.
 
-- The review page is verified in headless Chrome at desktop and phone widths: the map renders, the toggles (panel and map click) update the boundary, D, the score table and the photo counts, and the console is clean.
-
-### Left before Phase 0 is done
-
-- After Daniel decides: update `data/campus-selection.json` (set `approved: true`), re-run `npm run campus:build`, commit and push.
+**Phase 1 (image pipeline): in progress.**
 
 ## Key decisions
 
@@ -36,5 +31,5 @@ Read SPEC.md first, then this file.
 
 ## Things Daniel needs to do by hand
 
-1. Before Phase 1: log the Supabase CLI into the account that owns project `waezvtzepdxiisefivmu` (`supabase logout`, then `supabase login`).
+1. ~~Log the Supabase CLI into the account that owns project `waezvtzepdxiisefivmu`.~~ Done 2026-11-15 (project "UCLA-GeoGuessr", us-east-1).
 2. Before Phase 2: turn off the Email provider. Supabase dashboard → project → Authentication → Sign In / Providers → Email → switch off → Save.

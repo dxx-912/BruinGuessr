@@ -24,7 +24,7 @@
    34.078078
   ],
   "diagonal_m": 2297.5,
-  "approved": false,
+  "approved": true,
   "source": "OpenStreetMap relation 7493269 (amenity=university), with flagged areas cut along OSM features and streets",
   "attribution": "© OpenStreetMap contributors, Open Database License (ODbL) 1.0"
  },
