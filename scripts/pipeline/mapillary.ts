@@ -28,7 +28,7 @@ import { PbfReader } from "pbf";
 import { PIPELINE } from "../../src/lib/pipeline/config";
 import { campusShapes, facesCampus, thinNearDuplicates, zoneOf } from "../../src/lib/pipeline/geo";
 import { processImage } from "../../src/lib/pipeline/image";
-import { paths, readJson, writeJson } from "../../src/lib/pipeline/store";
+import { paths, readDecisions, readJson, writeJson } from "../../src/lib/pipeline/store";
 import type { Candidate, Zone } from "../../src/lib/pipeline/types";
 
 const REFRESH = process.argv.includes("--refresh");
@@ -200,6 +200,7 @@ async function main() {
   if (!token) throw new Error("MAPILLARY_TOKEN is not set (it lives in .env.local)");
   const cfg = PIPELINE.mapillary;
   const all = await fetchMetadata();
+  const decisions = await readDecisions();
 
   const drop: Record<string, number> = {};
   const count = (why: string) => void (drop[why] = (drop[why] ?? 0) + 1);
@@ -216,6 +217,9 @@ async function main() {
     if (typeof img.quality_score === "number" && img.quality_score < cfg.minQuality) { count(`quality below ${cfg.minQuality}`); continue; }
     const heading = img.computed_compass_angle ?? img.compass_angle ?? null;
     if (zone === "buffer" && (heading === null || !facesCampus(lng, lat, heading))) { count("buffer photo not facing campus"); continue; }
+    // The buffer was reviewed on 2026-11-15 and dropped as a source: of 211 candidates
+    // only 7 showed campus. Those 7 were approved by hand and are the only ones kept.
+    if (zone === "buffer" && decisions[`mapillary:${img.id}`]?.status !== "approved") { count("buffer photo (buffer dropped as a source)"); continue; }
 
     const year = img.captured_at ? new Date(img.captured_at).getUTCFullYear() : 2015;
     const score =

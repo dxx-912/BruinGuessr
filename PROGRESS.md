@@ -11,26 +11,28 @@ Read SPEC.md first, then this file.
 - `npm run campus:probe` writes photo positions to `.cache/review/photo-dots.json` (gitignored) for the review page.
 - Review page: `npm run dev`, then http://localhost:3000/dev/boundary (development only, 404 in production).
 
-**Phase 1 (image pipeline): built, 153 photos live, waiting for Daniel's review (2026-11-15).**
+**Phase 1 (image pipeline): built, 160 photos live, waiting for Daniel's review of the last Wikimedia batch and his own photos (2026-11-15).**
 
 - Database: `supabase/migrations/20261115000100_images.sql` is applied (table `images`, public bucket `photos`). Apply new migrations with `supabase db push --yes` (the CLI is linked and needs no password).
 - Three sources feed one local catalog in `.cache/pipeline/` (gitignored). Commands are listed in README.md.
-- Live in Supabase: **117 Mapillary + 36 Wikimedia = 153 photos**, all inside the boundary.
+- Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
 - `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All six checks pass.
 - `npm test`: 68 tests.
 
+### Decided by Daniel (2026-11-15)
+
+- The 7 buffer photos that show campus are approved and live. **The buffer is dropped as a source**: the Mapillary script now keeps a buffer photo only if it already has an approval.
+- The Wikimedia "UCLA Guest House" photo (wrong location tag) is rejected.
+- Wikimedia requests identify themselves with `WIKIMEDIA_USER_AGENT` in `.env.local` (his UCLA address). With it, all 99 Wikimedia candidates downloaded.
+- HEIC check: a real HEIC file (made with macOS `sips`, portrait orientation, GPS, heading, accuracy) imports correctly. A photo straight off an iPhone has not been tried yet.
+
 ### Waiting on Daniel
 
-1. **Buffer decision.** Of 211 buffer candidates (after filtering and thinning), only 7 show campus clearly; the rest are tree-lined Sunset Blvd and Hilgard Ave seen from cars. The 7 are "waiting" on `/dev/photos` (Where: Buffer ring). Sheets: `.cache/pipeline/sheets/buffer-picks-01.jpg` (my 7 picks) and `buffer-rejected-sample-01.jpg` (24 typical rejects). My recommendation: approve the 7 and treat the buffer as a small bonus, not a source.
-2. **One Wikimedia photo with a doubtful location** ("UCLA Guest House", tagged 240 m from the building) is waiting: drag its pin or reject it.
-3. **His own photos** of the Hill and the northwest: see "Adding your own photos" in README.md.
+1. **35 newly downloaded Wikimedia photos** are "waiting" on `/dev/photos` (Source: Wikimedia, Status: Waiting). He asked to review these himself. Nothing from them is live.
+2. **His own photos** of the Hill and the northwest: see "Adding your own photos" in README.md.
 
-### Unfinished
-
-- 35 Wikimedia photos are not downloaded yet. Commons gives scripts that do not identify themselves a tiny allowance for images it has to render (about 2 per 10 minutes, HTTP 429 otherwise). `npm run photos:wikimedia` only fetches what is missing and stops when refused, so it can simply be re-run now and then. To lift the limit, see manual step 3 below. New downloads arrive as "waiting" and need a review on `/dev/photos` (Source: Wikimedia). Judging by their titles, most of the 35 are portraits and event shots, but three are of the Hill (De Neve, Hedrick, Rieber).
-
-### Coverage (153 live, 7 × 7 grid, north up, `·` is outside campus)
+### Coverage (153 inside-campus photos; the 7 buffer photos are not in this grid, 7 × 7 grid, north up, `·` is outside campus)
 
 ```
         A    B    C    D    E    F    G
@@ -77,4 +79,4 @@ Read SPEC.md first, then this file.
 
 1. ~~Log the Supabase CLI into the account that owns project `waezvtzepdxiisefivmu`.~~ Done 2026-11-15 (project "UCLA-GeoGuessr", us-east-1).
 2. Before Phase 2: turn off the Email provider. Supabase dashboard → project → Authentication → Sign In / Providers → Email → switch off → Save.
-3. Optional, to fetch the last 35 Wikimedia photos quickly: add a line to `.env.local` such as `WIKIMEDIA_USER_AGENT="BruinGuessrImport/1.0 (your-email@example.com)"`, then run `npm run photos:wikimedia`. Wikimedia asks scripts for a contact address and throttles ones without it. The address is sent only to Wikimedia.
+3. ~~Add a Wikimedia contact to `.env.local`.~~ Done 2026-11-15.
