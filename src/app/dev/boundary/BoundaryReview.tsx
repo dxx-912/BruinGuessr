@@ -358,7 +358,7 @@ export default function BoundaryReview({ areas, selection, dots }: Props) {
                 () => setCopied(false),
               );
             }}
-            className="rounded-md bg-[#2774AE] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#1f5f90]"
+            className="shrink-0 whitespace-nowrap rounded-md bg-[#2774AE] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#1f5f90]"
           >
             {copied ? "Copied" : "Copy decision"}
           </button>
@@ -373,7 +373,10 @@ export default function BoundaryReview({ areas, selection, dots }: Props) {
       </aside>
 
       <div className="relative order-1 min-h-[45dvh] flex-1 md:order-2">
-        <div ref={container} className="absolute inset-0" />
+        {/* MapLibre sets `position: relative` on its container, so the sizing lives on a wrapper. */}
+        <div className="absolute inset-0">
+          <div ref={container} className="h-full w-full" />
+        </div>
         {!mapReady && !mapError && (
           <p className="absolute left-3 top-3 rounded bg-white/90 px-2 py-1 text-sm shadow">Loading map…</p>
         )}

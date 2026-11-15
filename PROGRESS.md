@@ -12,9 +12,10 @@ Read SPEC.md first, then this file.
 - Current provisional boundary: main campus and the Hill, with medical center, Drake Stadium and Sunset Canyon Rec kept in; Southwest campus (Weyburn Terrace) and the five Westwood Village buildings left out. D = 2,297.5 m.
 - `npm test` (27 tests), `npm run typecheck` and `npx eslint` all pass.
 
-### Open item before Phase 0 can be called done
+- The review page is verified in headless Chrome at desktop and phone widths: the map renders, the toggles (panel and map click) update the boundary, D, the score table and the photo counts, and the console is clean.
 
-- The map on `/dev/boundary` has **not been seen rendering**. In headless Chrome the side panel and all numbers are correct and MapLibre reports "load" with no console errors, but the screenshot showed a blank map canvas. That may only be a headless WebGL limitation. Check it in a real browser; if the map is blank there too, look at the worker setup in `src/lib/map/maplibre.ts` first.
+### Left before Phase 0 is done
+
 - After Daniel decides: update `data/campus-selection.json` (set `approved: true`), re-run `npm run campus:build`, commit and push.
 
 ## Key decisions
@@ -22,6 +23,7 @@ Read SPEC.md first, then this file.
 - Plan review decisions (2026-11-15) are folded into SPEC.md: Wikimedia required, own photos as a third source (`original`), about 40 m eligibility buffer, Google sign in only, perfect radius of 10 m in the score formula, reports counted per account.
 - Architecture: server-authoritative. All tables get RLS with no client policies; the browser talks to `/api` routes; game transitions are Postgres functions using the database clock. Realtime Broadcast is only a "something changed" ping in versus.
 - MapLibre GL JS v6 needs its worker file served by us: `scripts/copy-maplibre-worker.mjs` copies it to `public/vendor/` after `npm install`. Load MapLibre through `loadMapLibre()` in `src/lib/map/maplibre.ts`.
+- MapLibre sets `position: relative` on its container element, which overrides an `absolute` class and collapses the map to zero height. Always size a wrapper and give the map container `h-full w-full`.
 - `src/lib/geo/boundary.ts` (`composeBoundary`) is the single place the boundary is assembled; the build script and the review page both use it.
 - The medical area is cut along Charles E. Young Dr South and Tiverton Dr (coordinates in `scripts/build-campus.ts`); the botanical garden stays in the core.
 - The repo is public. Never commit anything that maps a photo to a location or source ID (`.cache/`, `photos-inbox/`, manifests are gitignored).
