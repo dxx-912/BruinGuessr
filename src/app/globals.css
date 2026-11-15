@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+/* Brand tokens. The full visual design arrives in Phase 2; these are the two fixed colors. */
+@theme inline {
+  --color-ucla-blue: #2774ae;
+  --color-ucla-gold: #ffd100;
+  --color-ink: #0b1f33;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
