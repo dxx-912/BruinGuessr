@@ -11,7 +11,40 @@ Read SPEC.md first, then this file.
 - `npm run campus:probe` writes photo positions to `.cache/review/photo-dots.json` (gitignored) for the review page.
 - Review page: `npm run dev`, then http://localhost:3000/dev/boundary (development only, 404 in production).
 
-**Phase 1 (image pipeline): in progress.**
+**Phase 1 (image pipeline): built, 153 photos live, waiting for Daniel's review (2026-11-15).**
+
+- Database: `supabase/migrations/20261115000100_images.sql` is applied (table `images`, public bucket `photos`). Apply new migrations with `supabase db push --yes` (the CLI is linked and needs no password).
+- Three sources feed one local catalog in `.cache/pipeline/` (gitignored). Commands are listed in README.md.
+- Live in Supabase: **117 Mapillary + 36 Wikimedia = 153 photos**, all inside the boundary.
+- Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
+- `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All six checks pass.
+- `npm test`: 68 tests.
+
+### Waiting on Daniel
+
+1. **Buffer decision.** Of 211 buffer candidates (after filtering and thinning), only 7 show campus clearly; the rest are tree-lined Sunset Blvd and Hilgard Ave seen from cars. The 7 are "waiting" on `/dev/photos` (Where: Buffer ring). Sheets: `.cache/pipeline/sheets/buffer-picks-01.jpg` (my 7 picks) and `buffer-rejected-sample-01.jpg` (24 typical rejects). My recommendation: approve the 7 and treat the buffer as a small bonus, not a source.
+2. **One Wikimedia photo with a doubtful location** ("UCLA Guest House", tagged 240 m from the building) is waiting: drag its pin or reject it.
+3. **His own photos** of the Hill and the northwest: see "Adding your own photos" in README.md.
+
+### Unfinished
+
+- 35 Wikimedia photos are not downloaded yet. Commons gives scripts that do not identify themselves a tiny allowance for images it has to render (about 2 per 10 minutes, HTTP 429 otherwise). `npm run photos:wikimedia` only fetches what is missing and stops when refused, so it can simply be re-run now and then. To lift the limit, see manual step 3 below. New downloads arrive as "waiting" and need a review on `/dev/photos` (Source: Wikimedia). Judging by their titles, most of the 35 are portraits and event shots, but three are of the Hill (De Neve, Hedrick, Rieber).
+
+### Coverage (153 live, 7 × 7 grid, north up, `·` is outside campus)
+
+```
+        A    B    C    D    E    F    G
+  1     0    ·    ·    ·    0    0    0
+  2     0    0    ·    ·    1   13    3
+  3     0    0    3    0    2   20    7
+  4     1    0   12   10   15    7    7
+  5     ·    ·    2    6    5   12    1
+  6     ·    ·    ·    5    6   14    ·
+  7     ·    ·    ·    0    1    0    ·
+```
+
+- Strong: the core from Bruin Walk to Royce and Powell, the east side down Portola Plaza and Charles E. Young Dr East, the Court of Sciences.
+- Thin or empty: **the whole Hill (columns A and B)**, Sunset Canyon Rec, Drake Stadium, the north edge along Sunset (row 1), the Anderson and northwest corner (D3), and the south edge at Le Conte (row 7).
 
 ## Key decisions
 
@@ -23,13 +56,25 @@ Read SPEC.md first, then this file.
 - The medical area is cut along Charles E. Young Dr South and Tiverton Dr (coordinates in `scripts/build-campus.ts`); the botanical garden stays in the core.
 - The repo is public. Never commit anything that maps a photo to a location or source ID (`.cache/`, `photos-inbox/`, manifests are gitignored).
 
-## Photo supply (measured 2026-11-15, before any filtering)
+### Phase 1 decisions
 
-- Mapillary inside the provisional boundary: 713 (457 on foot), zero panoramas. Wikimedia Commons: 168.
-- In a 40 m ring outside the boundary: 1,174 Mapillary (98 on foot), 17 Wikimedia.
+- Every candidate starts as "waiting". Nothing is uploaded without an explicit approval (contact sheet plus `photos:decide`, or the review page). Decisions live in `.cache/pipeline/decisions.json`, separate from the candidate lists, so re-running a source script never loses them.
+- A rejected photo stays in the candidate list and its near duplicates are not promoted, because what was wrong with it (glare, car hood) is usually wrong with its neighbours.
+- Filters (all in `src/lib/pipeline/config.ts`): Mapillary quality ≥ 0.5; near duplicates are photos within 22 m facing within 40° of each other; buffer photos must have campus ground within 70 m inside a ±30° field of view. I reviewed all 142 inside candidates and rejected 25 (glare, dark, car hood, bare wall). Lowest sharpness among kept photos is still clearly sharp, so the blur filter never fired.
+- Served file: WebP, 1600 px long edge, quality 80, about 270 KB. sharp re-encodes from pixels, so no metadata survives; a test and the publish step both verify that.
+- Storage filenames are 32 random hex characters, unrelated to our ID or the source ID. The bucket is public (fetch by exact URL) with no policies (no listing, no uploads).
+- Wikimedia: only CC0, CC BY and CC BY-SA; "Public domain" and FAL were refused (5 files). Commons serves only its standard thumbnail widths freely, so the script asks for 1920 px and never the original. Commons camera coordinates were sanity-checked against the building each title names.
+- Own photos are keyed by a hash of the file contents, start as "waiting", and are placed or corrected on `/dev/photos`. HEIC is converted with macOS `sips`. Publishing also pushes moved pins and withdraws rejected photos (`hidden_reason = 'withdrawn in review'`), and never un-hides a photo that players reported.
+- The Supabase project uses the new-style keys (`sb_publishable_…`, `sb_secret_…`) under the old env names. `adminClient()` in `src/lib/pipeline/publish.ts` is the script-side client; Phase 2 needs a `server-only` version for the app.
+
+## Photo supply (measured 2026-11-15)
+
+- Mapillary: 2,753 images in and around campus → 866 beyond the buffer, 259 buffer photos without campus in frame, 132 below the quality threshold, 1,143 near duplicates → 353 candidates (142 inside, 211 buffer) → 117 inside approved after review. Zero panoramas exist here.
+- Wikimedia Commons: 168 geotagged files inside the boundary → 99 after license, size, shape, date and crowding filters → 64 downloaded so far → 36 approved after review (the rest were portraits, interiors, events, wildfire shots).
 - Nothing on the Hill or at Sunset Canyon Rec. Daniel will shoot the Hill and the northwest.
 
 ## Things Daniel needs to do by hand
 
 1. ~~Log the Supabase CLI into the account that owns project `waezvtzepdxiisefivmu`.~~ Done 2026-11-15 (project "UCLA-GeoGuessr", us-east-1).
 2. Before Phase 2: turn off the Email provider. Supabase dashboard → project → Authentication → Sign In / Providers → Email → switch off → Save.
+3. Optional, to fetch the last 35 Wikimedia photos quickly: add a line to `.env.local` such as `WIKIMEDIA_USER_AGENT="BruinGuessrImport/1.0 (your-email@example.com)"`, then run `npm run photos:wikimedia`. Wikimedia asks scripts for a contact address and throttles ones without it. The address is sent only to Wikimedia.
