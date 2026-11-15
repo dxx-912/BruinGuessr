@@ -45,7 +45,8 @@ Next.js (App Router, TypeScript), Supabase (Auth, Postgres, Storage, Realtime), 
 
 The player must never be able to learn an image's location before guessing.
 
-- Serve photos from our own Supabase Storage under random filenames with all metadata stripped. Never expose the Mapillary image ID, Mapillary URLs, or coordinates to the client before the guess is locked.
+- Store photos in our own Supabase Storage under random filenames with all metadata stripped. Never expose the Mapillary image ID, Mapillary URLs, or coordinates to the client before the guess is locked.
+- Players never see a photo's permanent storage address. Each round's photo is served through a per-round URL that stops working once the round ends, so nobody can build a table of photo addresses and their answers.
 - The images table is not readable by clients. Clients get images only through server routes.
 - Round start times, deadlines, and scoring are handled on the server. Guesses submitted after the deadline (plus a small grace period for latency) are rejected.
 
@@ -65,6 +66,7 @@ The player must never be able to learn an image's location before guessing.
 
 - Bare Google sign in comes first, so every game has an owner from day one. Usernames and the leaderboard stay in Phase 3.
 - The full game loop following the rules above.
+- Serve each round's photo through a per-round URL that stops working once the round ends (see Anti cheat). The permanent storage address is never sent to a player.
 - A "report image" button on the reveal screen. An image reported by 3 different accounts is hidden from rotation. Each account has a daily report cap, and hidden images are kept for my review, not deleted.
 - Show the photographer credit on each reveal screen, never before the guess.
 

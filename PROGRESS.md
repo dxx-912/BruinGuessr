@@ -32,6 +32,23 @@ Read SPEC.md first, then this file.
 1. **35 newly downloaded Wikimedia photos** are "waiting" on `/dev/photos` (Source: Wikimedia, Status: Waiting). He asked to review these himself. Nothing from them is live.
 2. **His own photos** of the Hill and the northwest: see "Adding your own photos" in README.md.
 
+**Phase 2 (single player): not started. Waiting for Daniel's go-ahead.**
+
+### Phase 2 notes for whoever starts it
+
+- Added by Daniel on 2026-11-15 (now in SPEC.md): each round's photo is served through a **per-round URL that stops working once the round ends**; the permanent storage address never reaches a player.
+- How I plan to build that:
+  - Make the `photos` bucket **private** (new migration). Today it is public, which was fine while only the server knew the filenames, but a private bucket means a leaked filename is useless.
+  - A route such as `/api/games/[id]/rounds/[n]/photo` checks that the signed-in player owns the game and that round `n` has started and is not yet resolved, then streams the bytes from Storage with the secret key. After the round resolves it returns 404.
+  - Do not use Supabase signed URLs for this: a signed URL contains the permanent filename.
+  - Send `Cache-Control: private, no-store` so the browser does not keep a copy under a reusable address. The reveal screen needs the photo too, so it should keep showing the copy already in memory (an object URL), not refetch.
+  - Update `photos:report`: the "bucket cannot be listed" check stays, and add "a photo cannot be fetched by its storage path with the public key".
+  - Limit: this stops address-to-answer tables. It cannot stop someone recognising a photo they have seen before, or matching the image content itself; no scheme can.
+- First step of Phase 2 is bare Google sign in. Daniel must turn off the Email provider first (manual step 2 below).
+- The app needs a `server-only` Supabase admin client; `adminClient()` in `src/lib/pipeline/publish.ts` is for scripts.
+- Scoring lives in SQL (database clock, atomic). `src/lib/geo/scoring.ts` is the tested reference to check the SQL against. D goes into the database from `data/campus.geojson` (2,297.5 m).
+- The schema proposed and approved in the plan review: `profiles`, `image_reports`, `games`, `game_rounds`, `game_players`, `guesses`, `rooms`, `room_members`, `settings`. Round count and timer length are per-game columns (defaults 5 and 30). Pins are saved to the server as they are placed, so the guess exists at zero without a last-second request.
+
 ### Coverage (153 inside-campus photos; the 7 buffer photos are not in this grid, 7 × 7 grid, north up, `·` is outside campus)
 
 ```
@@ -58,6 +75,18 @@ Read SPEC.md first, then this file.
 - The medical area is cut along Charles E. Young Dr South and Tiverton Dr (coordinates in `scripts/build-campus.ts`); the botanical garden stays in the core.
 - The repo is public. Never commit anything that maps a photo to a location or source ID (`.cache/`, `photos-inbox/`, manifests are gitignored).
 
+### Working notes (tooling)
+
+- Stack as installed: Next.js 16.4 (Turbopack, Cache Components on), React 19.3, Tailwind 4, MapLibre GL 6, supabase-js 2, sharp, vitest 5, Node 24. `AGENTS.md` says to read `node_modules/next/dist/docs/` before writing Next code; do that, several conventions differ from older versions.
+- With Cache Components, an async file or database read in a page must sit under `<Suspense>` (or in a `use cache` function). Route handlers that touch the request or do async I/O are dynamic automatically.
+- `npm run typecheck` runs `next typegen` first; plain `tsc` fails on `LayoutProps` without it.
+- The app was scaffolded in a temp folder named `bruinguessr` and copied in, because the repo folder name has spaces and capitals.
+- Dev-only pages and APIs (`/dev/*`, `/api/dev/*`) return 404 unless `NODE_ENV` is `development`. Checked against a production build.
+- Looking at pages: the Claude in Chrome extension did not respond in this session. What worked was driving the installed Chrome headlessly with `puppeteer-core` (flags `--enable-unsafe-swiftshader --use-angle=swiftshader`), waiting for `.maplibregl-canvas`, then screenshotting. That is how both review pages were verified, including dragging a pin.
+- Overpass API mirrors were flaky; the boundary build uses the main OSM API by object ID instead, with downloads cached in `.cache/osm/`.
+- Mapillary: `on_foot` and `quality_score` are real API fields. Thumbnail URLs expire, so the script asks for a fresh one right before each download.
+- Supabase: `supabase db push --yes` works without the database password (login role). Docker is not installed, so there is no local Supabase; migrations go straight to the real project.
+
 ### Phase 1 decisions
 
 - Every candidate starts as "waiting". Nothing is uploaded without an explicit approval (contact sheet plus `photos:decide`, or the review page). Decisions live in `.cache/pipeline/decisions.json`, separate from the candidate lists, so re-running a source script never loses them.
@@ -71,8 +100,8 @@ Read SPEC.md first, then this file.
 
 ## Photo supply (measured 2026-11-15)
 
-- Mapillary: 2,753 images in and around campus → 866 beyond the buffer, 259 buffer photos without campus in frame, 132 below the quality threshold, 1,143 near duplicates → 353 candidates (142 inside, 211 buffer) → 117 inside approved after review. Zero panoramas exist here.
-- Wikimedia Commons: 168 geotagged files inside the boundary → 99 after license, size, shape, date and crowding filters → 64 downloaded so far → 36 approved after review (the rest were portraits, interiors, events, wildfire shots).
+- Mapillary: 2,753 images in and around campus → 866 beyond the buffer, 259 buffer photos without campus in frame, 132 below the quality threshold, 1,143 near duplicates → 353 candidates (142 inside, 211 buffer) → 117 inside and 7 buffer approved after review. Zero panoramas exist here.
+- Wikimedia Commons: 168 geotagged files inside the boundary → 99 after license, size, shape, date and crowding filters → all 99 downloaded → 64 reviewed by me (36 approved; the rest were portraits, interiors, events, wildfire shots) and 35 waiting for Daniel.
 - Nothing on the Hill or at Sunset Canyon Rec. Daniel will shoot the Hill and the northwest.
 
 ## Things Daniel needs to do by hand
