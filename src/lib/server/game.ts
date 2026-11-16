@@ -5,14 +5,14 @@ import { adminClient } from "./supabase";
 /** The photo bucket. Private: only the secret key can read from it. */
 export const PHOTO_BUCKET = "photos";
 
-type Failed = { error: GameError };
+export type Failed = { error: GameError };
 
 /**
  * Calls one of the game functions in the database (see the single player
  * migration). All rules, timing and scoring live there; this file only passes
  * the verified account ID along.
  */
-async function call<T>(fn: string, args: Record<string, unknown>): Promise<T | Failed> {
+export async function call<T>(fn: string, args: Record<string, unknown>): Promise<T | Failed> {
   const { data, error } = await adminClient().rpc(fn, args);
   if (error) {
     console.error(`[game] ${fn} failed: ${error.message}`);

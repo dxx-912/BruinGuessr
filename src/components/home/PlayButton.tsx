@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { api, ApiError } from "@/lib/game/api";
 
 /** Starts a solo game and goes to it. */
@@ -9,6 +9,10 @@ export default function PlayButton() {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+
+  // Next.js keeps this page's state while the player is in the game. Coming back with the
+  // Back button, the button must be ready again, not still saying "Starting…".
+  useLayoutEffect(() => () => setStarting(false), []);
 
   const start = async () => {
     setStarting(true);

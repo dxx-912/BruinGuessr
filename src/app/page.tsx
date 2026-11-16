@@ -52,9 +52,14 @@ export default function Home({ searchParams }: PageProps<"/">) {
             </Suspense>
           </div>
 
-          <div className="mt-4 flex max-w-lg items-center gap-4 rounded-2xl border-2 border-dashed border-navy-line px-4 py-3">
-            <p className="display text-3xl text-sky">Versus</p>
-            <p className="text-sm text-sky">Race two to five friends on the same five photos. Coming soon.</p>
+          <div className="mt-4 flex max-w-lg flex-wrap items-center gap-x-4 gap-y-3 rounded-[20px] border-2 border-navy-line bg-navy px-4 py-3">
+            <div className="min-w-0 flex-1 basis-56">
+              <p className="display text-3xl">Versus</p>
+              <p className="text-sm text-sky">Race two to five friends on the same five photos, on the same clock.</p>
+            </div>
+            <Link href="/versus" className="btn btn-blue">
+              Play versus
+            </Link>
           </div>
         </div>
 

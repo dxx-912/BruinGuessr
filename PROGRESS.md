@@ -18,7 +18,7 @@ Read SPEC.md first, then this file.
 - Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
 - `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All nine pass (since 2026-11-16).
-- `npm test`: 80 tests. `npm run test:live`: 19 tests against the real database.
+- `npm test`: 101 tests. `npm run test:live`: 60 tests against the real database (counts as of Phase 4).
 
 ### Decided by Daniel (2026-11-15)
 
@@ -64,7 +64,7 @@ Read SPEC.md first, then this file.
 - A reload during the reveal or summary shows the result without the photo, because the photo's address has stopped working by design. The copy in memory is what the reveal and summary use.
 - All of these are columns in the one-row `settings` table, changeable without a code change.
 
-**Phase 3 (accounts and leaderboard): done and approved by Daniel 2026-11-16. Phase 4 (versus) has not started; wait for Daniel to ask for it.**
+**Phase 3 (accounts and leaderboard): done and approved by Daniel 2026-11-16.**
 
 - Usernames: picked once, on the first sign in (`/welcome`). 3 to 16 letters, numbers or underscores; unique ignoring case; shown as typed. The Google callback, the dev login, the home page, the game page and `POST /api/games` all send a player without a username to `/welcome` first (the API answers 403 `no_username`).
 - Profanity filter: the `obscenity` package (catches "sh1t", "fuuuck", leaves "assassin" and "Scunthorpe" alone), also checked with underscores removed, plus a short reserved list (admin, moderator, BruinGuessr, UCLA, Joe Bruin…). Server only; the word list is not in the browser bundle (checked).
@@ -94,13 +94,61 @@ Read SPEC.md first, then this file.
 - "Ties go to whoever reached the score first" uses the time the game finished. In a versus game every player finishes at the same moment, so two players tied in the same versus game are ordered arbitrarily but consistently.
 - A completed game with 0 points still counts (it is a completed game).
 
-### Notes for Phase 4
+**Phase 4 (versus): built 2026-11-16, waiting for Daniel's approval. Phase 5 (polish) has not started; wait for Daniel to ask for it.**
 
-- Tables already shaped for versus: `games.mode`, `game_players` (one row per player with `total_score`), `guesses` keyed by player. Scoring a round scores every player in the game and gives 0 to anyone without a pin. Not built yet: `rooms`, `room_members`.
-- The leaderboard already counts versus games: just finish them with `status = 'completed'` and `completed_at`, with each player's `game_players.total_score` filled in. Players who miss rounds get 0 for them, as `_resolve_round` already does.
-- Versus room screens should show usernames (`profiles.username`), never Google names.
-- The development test login creates accounts named `dev-player-N@bruinguessr.test`. Delete them before the leaderboard goes live (all were deleted at the end of Phase 2).
-- Deploy (Phase 5): Vercel needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, and Supabase needs the production URL in Site URL and redirect URLs. Until then the deployed site cannot sign anyone in.
+The site is live at https://ucla-geoguessr.vercel.app with Google sign in working (Daniel, 2026-11-16). **The live site and `npm run dev` use the same Supabase database.** Migrations and test data land in production the moment they are applied or created.
+
+- Versus is the solo engine with more than one row in `game_players`. The round clock, scoring, per-round photo address and leaderboard are the same functions. Migration `20261116000200_versus.sql` (applied) adds `rooms` and `room_members`, and teaches the existing functions three things: a round ends early when everyone still here has guessed; after a reveal the next round opens for everybody at once; the state lists the other players, and a scored round shows every pin. Solo behaves as before (its live tests pass unchanged).
+- Screens: `/versus` (host or join), `/versus/<CODE>` (lobby; also the link players share and the way back in after a disconnect), and the existing `/game/<id>` for play, reveal and final standings. How it works is in README.md ("Versus"); the look is in DESIGN.md ("Versus").
+- Room links are built in the browser from the address the site is being visited at, so they are correct on localhost and on the live site. Nothing in the browser bundle mentions localhost (checked against a production build).
+- Realtime: Supabase Broadcast carries one empty "changed" message per room, sent by the server after a guess, a round opening, a join, a leave or a start. Browsers then ask our API for the state. Every versus screen also asks on a timer (2 s in the lobby, 2.5 s in a game), which is also how the server knows who is still there, so the game works if Realtime is unreachable. No new env vars: the browser uses the two `NEXT_PUBLIC_` values Vercel already has.
+- Leaderboard: confirmed that it holds with no change to how it ranks. A live test plays a versus game through the real functions and checks each player's row (their own five-round total, mode "versus"), that a better solo game replaces it, that a worse rematch does not, and that a game everyone left never counts.
+- Test accounts: the development login now flags its accounts (`profiles.is_test`), and the leaderboard leaves flagged accounts out, because test games would otherwise show on the live board. This is the one change to the leaderboard view.
+
+### Checks run at the end of Phase 4
+
+- `npm test` (101 passed), `npm run test:live` (60 passed, with `npm run dev` running; 27 are new: 26 versus checks against the real database and 1 that drives the room API over HTTP), type-check, lint, production build.
+- Production build, run locally: dev routes 404; room API answers 401 signed out and 400 to another site's request; no secret key, Mapillary token, database function name, profanity list or "localhost" in the browser files; a full two-player game and a rematch played on it.
+- Headless Chrome, five test accounts in five separate browser sessions (four desktop, one phone size), all passing with no console errors:
+  - five players in one room; a sixth is told it is full; a seventh arriving after the start is told the game already started;
+  - everyone guesses early: the reveal was on all five screens about 1 second after the last guess, well before the timer;
+  - two players pressing Guess at the same moment: one result, the same totals on every screen, each round counted once;
+  - a player closing the tab mid-round: the others were not made to wait out the clock, the dropped player's saved pin was scored, and the room link brought them back into the same game; a rejoin within the same round keeps the pin and the time left;
+  - the host leaving mid-round: 0 for that round, the next player became host and could open the next round; the old host came back through "Rejoin" on the versus page as an ordinary player;
+  - the next round opening by itself after 20 seconds; the clock running out with a pin on the map (counted) and with none (0);
+  - final standings, rematch with three of the five, and the two left behind being told the rematch started without them.
+- Also checked in the browser: a signed-out visitor following a room link is asked to sign in and comes back to the room; a solo game still plays through; the lobby when a guest or the host leaves; phone layouts for the lobby, round, reveal and standings.
+- On the live site after the push: see "Live site" below.
+
+### How to test Phase 4
+
+1. Open https://ucla-geoguessr.vercel.app (or `npm run dev` and http://localhost:3000), sign in, click "Play versus", then "Create a room". You get a five-letter code and a link that starts with the site you are on.
+2. On a second device or a private window, sign in with a different Google account and open the link (or type the code under "Join a game"). The lobby shows both of you. Start needs two players, and only the host has the button.
+3. Play: both screens show the same photo and the same clock. When one of you guesses, the other sees a gold tick by that name, not the pin. When both have guessed the reveal comes at once, with both pins and the scoreboard.
+4. Try the hard cases: close one tab mid-round and reopen the room link; have the host click the wordmark to leave mid-game (the other becomes host); let the clock run out; leave the reveal alone for 20 seconds (the next round opens by itself).
+5. After round five: "Final standings", then "Rematch" on both, and the host starts again.
+6. `/leaderboard`: a versus total shows only if it beats that account's best, marked "versus".
+7. Without a second Google account, locally: http://localhost:3000/api/dev/login?as=1 in one private window and `?as=2` in another browser (test accounts never appear on the leaderboard). Delete them afterwards, or ask me to.
+
+### Decisions made in Phase 4 (say so if you want any changed)
+
+- Room codes are five letters with no vowels (no accidental words) and no digits (no keyboard switch on a phone), which also rules out 0/O and 1/I. About 3.2 million codes.
+- Between rounds the next round opens by itself 20 seconds after the reveal; the host can open it sooner. The spec does not say who moves the game on, and this way a host who walks away cannot stall it.
+- A versus round opens 5 seconds before its clock starts (solo: 2.5), so every screen has the photo before the clock runs.
+- "Everyone has guessed" means everyone still here. A player not heard from for 10 seconds (or who left) is not waited for; a pin they had already placed is still scored.
+- Host passes on: at once when the host leaves; after 10 seconds without a word from them during a game; after 2 minutes away from the lobby, and only if someone else is there (a host alone in the lobby can put the phone down as long as they like). The next host is whoever joined earliest.
+- A player away from the lobby for 2 minutes loses their seat while others are there, and gets one back by returning (if the game has not started).
+- Rematch: when a game ends the room is a lobby again with the same code. Players press Rematch to be in the next game; whoever has not by the time the host starts is left out. If the old host does not come back within 20 seconds of someone else waiting, that someone becomes the host. New players can join the lobby by code while seats are free.
+- Leaving a versus game mid-way (the wordmark, top left) keeps the seat: the player can come back and gets 0 only for rounds missed. If everyone leaves, the game is abandoned and does not count.
+- A room nobody has been in for six hours is closed the next time anyone creates a room.
+- Seat colours are fixed by seat (blue, red, green, violet, orange); see DESIGN.md.
+- All of the timings and the 2 to 5 limit are columns in `settings`.
+
+### Notes for Phase 5
+
+- Vercel already has the three env vars and Supabase has the production URL (sign in works on the live site). Nothing new is needed for versus.
+- Not built, and worth considering in polish: a host "remove player" control in the lobby; a confirm before leaving a versus game; sound when another player locks in.
+- The credits page, loading/empty/error states and a mobile pass over solo are still Phase 5.
 
 ### Coverage (153 inside-campus photos; the 7 buffer photos are not in this grid, 7 × 7 grid, north up, `·` is outside campus)
 
@@ -136,6 +184,9 @@ Read SPEC.md first, then this file.
 - The app was scaffolded in a temp folder named `bruinguessr` and copied in, because the repo folder name has spaces and capitals.
 - Dev-only pages and APIs (`/dev/*`, `/api/dev/*`) return 404 unless `NODE_ENV` is `development`. Checked against a production build.
 - Phase 2 tooling: with Cache Components, anything that reads the session must call `await connection()` first (`currentUser()` does), or Next reports "Date.now() while prerendering". A redirect from a page that streams arrives in the page body with status 200, not as an HTTP redirect. Postgres `exp()` raises on underflow, and a `float8` loses a little precision when put in `jsonb` (about 14 digits).
+- **Next.js keeps a page's state after you navigate away** (Cache Components uses React `<Activity>`; up to 3 routes). Coming back to a route with `router.push` or the Back button shows it with its old state, and its effects run again. Two bugs came from this in Phase 4: the lobby bounced players to a finished game, and "Starting…" buttons stayed disabled. Rules that fixed them: navigate on a fresh server answer, never from remembered state in an effect; reset transient state in a `useLayoutEffect` cleanup. Guide: `node_modules/next/dist/docs/01-app/02-guides/preserving-ui-state.md`.
+- Browser testing in development: the dev server reloads a page several times the first time it compiles it, so visit each route once before a scripted run, and wait for `domcontentloaded` rather than network idle.
+- Browser testing with several players: one browser context per player, each signed in through `/api/dev/login?as=N`. To test the production build (`npm run build`, `PORT=3100 npm run start`) or the live site, sign in on the dev server and reuse the `sb-…` session cookie on the other address; it is the same Supabase project, so the session is valid there.
 - Looking at pages: the Claude in Chrome extension did not respond in this session. What worked was driving the installed Chrome headlessly with `puppeteer-core` (flags `--enable-unsafe-swiftshader --use-angle=swiftshader`), waiting for `.maplibregl-canvas`, then screenshotting. That is how both review pages were verified, including dragging a pin.
 - Overpass API mirrors were flaky; the boundary build uses the main OSM API by object ID instead, with downloads cached in `.cache/osm/`.
 - Mapillary: `on_foot` and `quality_score` are real API fields. Thumbnail URLs expire, so the script asks for a fresh one right before each download.

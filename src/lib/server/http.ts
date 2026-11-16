@@ -1,5 +1,6 @@
 import "server-only";
 import type { GameError } from "@/lib/game/types";
+import { normalizeRoomCode } from "@/lib/versus/types";
 import { currentUser, type CurrentUser } from "./auth";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -20,6 +21,11 @@ const STATUS: Record<GameError, number> = {
   locked: 409,
   daily_cap: 429,
   no_username: 403,
+  room_locked: 409,
+  room_full: 409,
+  not_in_room: 403,
+  not_host: 403,
+  need_players: 409,
   server_error: 500,
 };
 
@@ -67,6 +73,9 @@ export function roundNumber(value: unknown): number | null {
   const n = typeof value === "string" && /^\d{1,3}$/.test(value) ? Number(value) : value;
   return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 100 ? n : null;
 }
+
+/** A versus room code from a URL, in capitals, or null if it could not be one. */
+export const roomCode = (value: unknown): string | null => (typeof value === "string" ? normalizeRoomCode(value) : null);
 
 export function coordinate(value: unknown, limit: number): number | null {
   return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= limit ? value : null;

@@ -1,6 +1,6 @@
 # BruinGuessr
 
-A GeoGuessr-style game for UCLA's campus. You see a photo taken somewhere on campus, get 30 seconds to drop a pin on the map, and score more the closer you land.
+A GeoGuessr-style game for UCLA's campus. You see a photo taken somewhere on campus, get 30 seconds to drop a pin on the map, and score more the closer you land. Play solo, or race two to five players in a versus room.
 
 `SPEC.md` is the source of truth for what is being built. `PROGRESS.md` records what is done, key decisions and manual steps.
 
@@ -29,18 +29,36 @@ Sign in is Google only (Supabase Auth). On the first sign in a player picks a us
 - **Usernames** are 3 to 16 letters, numbers or underscores, unique ignoring case, and picked once. A basic profanity filter (the `obscenity` package, plus a short list of official-looking names) runs on the server. If one slips through, `npm run usernames -- reset <name>` clears it and the player picks again on their next visit.
 - **Leaderboard** (`/leaderboard`, open to everyone): one row per account, its best completed game, ties to whoever got there first. It is computed from `game_players` joined to `games`, so a completed versus game counts the same way as a solo game. Signed-in players see their own rank above the table, and their row pinned under it when it is on another page.
 
+### Versus
+
+A versus game is the same game with more than one player in it: the same round clock, scoring, per-round photo address and leaderboard. What versus adds is the room.
+
+- **Rooms.** "Play versus" → "Create a room" gives a five-letter code (no vowels, so no words, and none of 0, O, 1, I) and a link, `/versus/<CODE>`. The link is built from the address the site is being visited at, so it is right on localhost and on the deployed site. A room holds 2 to 5 players and locks when the host starts.
+- **One clock, one photo.** The server opens each round once, for everyone. A versus round opens 5 seconds before its clock starts, so every screen has the photo in time.
+- **A round ends when everyone still in the game has guessed, or on the clock.** While it is open, players see who has guessed, never where: other pins and the answer are sent only after the round is scored.
+- **Between rounds** the next round opens by itself 20 seconds after the reveal, for everyone at once. The host can open it sooner.
+- **Dropping off.** Each browser asks the server about its room every 2 to 2.5 seconds; a player not heard from for 10 seconds counts as away, and rounds stop waiting for them (a pin they had already placed is still scored). They come back through the room link, or "Rejoin" on the versus page, and get 0 only for rounds they missed entirely.
+- **The host.** If the host leaves or drops off, the player who joined next becomes the host.
+- **Rematch.** When a game ends the room is a lobby again. Players who press Rematch are in the next game; anyone who does not is left out when the host starts.
+- **Realtime** carries only an empty "something changed" message per room, so screens update at once instead of at their next check. No game data travels over it, and the game works without it.
+- **Leaderboard.** A finished versus game counts for each player like a solo game: their own five-round total, and only if it beats their best. A game everyone left does not count.
+
+The numbers above (5 s, 20 s, 10 s, 2 to 5 players) are columns in the `settings` table.
+
 The visual direction is written up in `DESIGN.md`.
 
 ### Testing without Google
 
-In development only, `http://localhost:3000/api/dev/login?as=1` signs the browser in as a test account ("Dev Player 1"; `as` can be 1 to 9). The first time, it goes to the username page like a real first sign in. It returns 404 on the deployed site. Test accounts end in `@bruinguessr.test`; delete them before real players arrive, or they stay on the leaderboard.
+In development only, `http://localhost:3000/api/dev/login?as=1` signs the browser in as a test account ("Dev Player 1"; `as` can be 1 to 9). The first time, it goes to the username page like a real first sign in. It returns 404 on the deployed site. To try versus alone, sign in as a different test player in each of several private windows (or browsers) and join the same room.
+
+The live site uses the same database, so test accounts are flagged (`profiles.is_test`) and never appear on the leaderboard. They end in `@bruinguessr.test`; delete them when you are done.
 
 ## Tests
 
 | Command | What it checks | Needs |
 |---|---|---|
-| `npm test` | Scoring, geometry, the photo pipeline, formatting, username rules and the profanity filter | nothing |
-| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, usernames, leaderboard ranking (including a versus game), and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
+| `npm test` | Scoring, geometry, the photo pipeline, formatting, username rules and the profanity filter, room codes | nothing |
+| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, usernames, leaderboard ranking, versus (five players, guesses at the same moment, dropping off and rejoining, the host leaving, rematch, versus scores on the leaderboard), and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
 | `npm run photos:report` | Photo pool and live anti-cheat checks | `.env.local` |
 
 The live tests create throwaway accounts and games and delete them when they finish.

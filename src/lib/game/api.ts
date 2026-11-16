@@ -1,3 +1,4 @@
+import type { RoomState } from "@/lib/versus/types";
 import type { GameError, GameState, LatLng, ReportReason } from "./types";
 
 /** A request to the game API that did not succeed. `code` says why. */
@@ -44,6 +45,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     response = await fetch(path, {
       method,
       cache: "no-store",
+      // Lets "leave the room" finish even when the page is already navigating away.
+      keepalive: method !== "GET",
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
@@ -58,8 +61,34 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data;
 }
 
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * The state to keep after the server sends a new one.
+ *
+ * In a versus game the state is asked for every few seconds and answers can
+ * arrive out of order, so an answer older than what is already on screen is
+ * dropped. Scored rounds that have not changed keep the object they had, so
+ * the map does not replay a reveal each time the same result arrives again.
+ */
+export function mergeState(current: GameState | null, next: GameState): GameState {
+  if (!current || current.id !== next.id) return next;
+  if (next.serverNow < current.serverNow) return current;
+  const results = next.results.map((result) => {
+    const old = current.results.find((r) => r.round === result.round);
+    return old && same(old, result) ? old : result;
+  });
+  const unchanged = results.length === current.results.length && results.every((r, i) => r === current.results[i]);
+  return { ...next, results: unchanged ? current.results : results };
+}
+
 export const api = {
   newGame: () => request<{ id: string }>("POST", "/api/games"),
+  createRoom: () => request<RoomState>("POST", "/api/rooms"),
+  room: (code: string) => request<RoomState>("GET", `/api/rooms/${code}`),
+  joinRoom: (code: string) => request<RoomState>("POST", `/api/rooms/${code}/join`),
+  leaveRoom: (code: string) => request<{ ok: true }>("POST", `/api/rooms/${code}/leave`),
+  startRoom: (code: string) => request<RoomState>("POST", `/api/rooms/${code}/start`),
   state: (gameId: string) => request<GameState>("GET", `/api/games/${gameId}`),
   startRound: (gameId: string) => request<GameState>("POST", `/api/games/${gameId}/round`),
   pin: (gameId: string, round: number, pin: LatLng) =>

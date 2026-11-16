@@ -45,7 +45,7 @@ Gold always carries dark text (`night`). Blue and navy carry `paper` text.
 
 ## Screens
 
-**Home.** Navy field, the campus outline large and faint in gold line behind the content, one gold pin dropped on it. Wordmark "BRUIN" in white, "GUESSR" in gold. One line of explanation. A large gold "Play solo" tile; a muted "Versus" tile marked as coming later. Account chip at top right. Signed out, the main button is "Sign in with Google to play".
+**Home.** Navy field, the campus outline large and faint in gold line behind the content, one gold pin dropped on it. Wordmark "BRUIN" in white, "GUESSR" in gold. One line of explanation. A large gold "Play solo" tile; under it a navy "Versus" tile with a blue "Play versus" button. Account chip at top right. Signed out, the main button is "Sign in with Google to play".
 
 **Round.** The photo fills the screen (`contain` over a blurred copy of itself, so nothing is cropped). Scroll to zoom, drag to pan.
 - Top left: small wordmark and a quit control.
@@ -59,6 +59,32 @@ Gold always carries dark text (`night`). Blue and navy carry `paper` text.
 
 **Summary.** The map with all five pairs. A table of rounds (thumbnail, distance, points), the total out of 25,000 counted up large in gold, "Play again" and "Home".
 
+## Versus
+
+Versus uses the same screens as solo. Gold stays the one colour for the main action and for winning; blue is for the second choice.
+
+**Seat colours.** Each player gets one colour for the whole room, by seat. It is on their mark in the lobby (a circle with their initial), their pin on the map and their row on the scoreboard, so a colour always means the same person. Gold is never a seat colour: it belongs to the answer.
+
+| Seat | Value |
+| --- | --- |
+| 1 | `#2774AE` (UCLA Blue) |
+| 2 | `#E5484D` |
+| 3 | `#1E9E62` |
+| 4 | `#8B5CD6` |
+| 5 | `#DD7A12` |
+
+Marks and pins carry white letters and a white ring. A player's own pin is a little larger and sits on top.
+
+**Versus page.** "Play versus" as the headline, then two panels side by side: "Host a game" with a gold "Create a room", and "Join a game" with a five-letter code field and a blue "Join".
+
+**Lobby.** The room code as five scoreboard tiles (gold letters on navy, with a lip). Under it the link with "Copy link" and, where the device has one, "Share". Five seats in a grid: filled seats show the mark, the name and a gold "Host" pill; open seats are dashed. The host has one wide gold "Start game"; everyone else reads "Waiting for NAME to start the game…". On a phone the start area stays pinned to the bottom.
+
+**Round.** As solo, plus a player strip at top left: every player's mark, with a small gold tick once they have guessed (names and "Guessing / Guessed / Away" beside it on wide screens). After guessing, the button reads "Locked in. Waiting for 2 players" and the clock keeps running.
+
+**Reveal.** The map shows every pin in its seat colour, each with a dashed line in the same colour drawn to the gold flag. The panel holds this player's points, then the scoreboard (rank, mark, name, distance, points this round, running total, best first, own row highlighted), then what comes next: a gold "Next round" for the host, a countdown for everyone else.
+
+**Final standings.** The summary screen with the standings above the rounds: the winner's row has a gold border and a "Winner" pill. Pointing at a round on the list shows everyone's pins for it on the map. Buttons: gold "Rematch", blue "Home".
+
 ## Motion and sound
 
 - Things arrive with a short overshoot (about 250 ms). Scores count up over about 900 ms. The reveal line draws from guess to answer.
@@ -67,4 +93,4 @@ Gold always carries dark text (`night`). Blue and navy carry `paper` text.
 
 ## Words
 
-Plain and short. "Guess", "Next round", "Play again", "84 m away", "No guess", "Time's up". Never "Submit".
+Plain and short. "Guess", "Next round", "Play again", "84 m away", "No guess", "Time's up". Never "Submit". In versus: "Create a room", "Join", "Start game", "Locked in", "Final standings", "Rematch", "Leave room".

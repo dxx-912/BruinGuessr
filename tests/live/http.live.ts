@@ -181,4 +181,72 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
     expect(standing.status).toBe(200);
     expect((await call(null, "GET", "/api/me/standing")).status).toBe(401);
   });
+
+  it("runs a versus room: host, join, start, guess, leave", async () => {
+    // Nobody signed out, no other site, and nothing that is not a room code.
+    expect((await call(null, "POST", "/api/rooms")).status).toBe(401);
+    expect((await call(null, "GET", "/api/rooms/BCDFG")).status).toBe(401);
+    expect((await call(null, "POST", "/api/rooms/BCDFG/join")).status).toBe(401);
+    expect((await call(alice, "POST", "/api/rooms", undefined, "https://evil.example")).status).toBe(400);
+    expect((await call(alice, "GET", "/api/rooms/ABCDE")).status).toBe(404);
+    expect((await call(alice, "POST", "/api/rooms/nope/join")).status).toBe(404);
+
+    const created = await call(alice, "POST", "/api/rooms");
+    expect(created.status).toBe(200);
+    const room = await created.json();
+    expect(room.code).toMatch(/^[BCDFGHJKLMNPQRSTVWXZ]{5}$/);
+    expect(room).toMatchObject({ status: "lobby", isHost: true, seat: 1, canStart: false });
+
+    // Not in the room: nothing about it. Then in, by a code typed in small letters.
+    expect((await call(bob, "GET", `/api/rooms/${room.code}`)).status).toBe(403);
+    expect((await call(bob, "POST", `/api/rooms/${room.code}/start`)).status).toBe(403);
+    const joined = await call(bob, "POST", `/api/rooms/${room.code.toLowerCase()}/join`);
+    expect(joined.status).toBe(200);
+    expect((await joined.json()).members).toHaveLength(2);
+    expect((await call(bob, "POST", `/api/rooms/${room.code}/start`)).status).toBe(403);
+    expect((await call(bob, "POST", `/api/rooms/${room.code}/join`, undefined, "https://evil.example")).status).toBe(400);
+
+    const started = await (await call(alice, "POST", `/api/rooms/${room.code}/start`)).json();
+    expect(started.status).toBe("playing");
+    const id: string = started.gameId;
+    expect((await (await call(bob, "GET", `/api/rooms/${room.code}`)).json()).gameId).toBe(id);
+
+    // Locked: a third player cannot get in, see the game, or fetch its photo.
+    const carol = await signIn(7);
+    expect((await call(carol, "POST", `/api/rooms/${room.code}/join`)).status).toBe(409);
+    expect((await call(carol, "GET", `/api/games/${id}`)).status).toBe(404);
+    expect((await call(carol, "GET", `/api/games/${id}/rounds/1/photo`)).status).toBe(404);
+
+    // Both players get the same photo through their own per-round address.
+    const photos = await Promise.all([alice, bob].map(async (who) => (await call(who, "GET", `/api/games/${id}/rounds/1/photo`)).arrayBuffer()));
+    expect(photos[0].byteLength).toBeGreaterThan(10_000);
+    expect(Buffer.from(photos[0]).equals(Buffer.from(photos[1]))).toBe(true);
+
+    // One guess in: the round stays open, and the other player learns only that it happened.
+    const first = (await (await call(alice, "POST", `/api/games/${id}/guess`, { round: 1, lat: 34.0722, lng: -118.4423 })).json()) as GameState;
+    expect(first.round).toMatchObject({ number: 1, locked: true });
+    const waiting = await call(bob, "GET", `/api/games/${id}`);
+    const seen = await waiting.text();
+    expect(seen).not.toContain("34.0722");
+    expect(seen).not.toMatch(/answer|photographer/);
+    expect((JSON.parse(seen) as GameState).versus?.players.map((p) => p.locked)).toEqual([true, false]);
+    // No account ID ever leaves the server.
+    const users = await admin.auth.admin.listUsers({ perPage: 200 });
+    for (const u of users.data.users) expect(seen).not.toContain(u.id);
+
+    const second = (await (await call(bob, "POST", `/api/games/${id}/guess`, { round: 1, lat: 34.0712, lng: -118.4441 })).json()) as GameState;
+    expect(second.round).toBeNull();
+    expect(second.results[0].players).toHaveLength(2);
+    expect((await call(bob, "GET", `/api/games/${id}/rounds/1/photo`)).status).toBe(404);
+
+    // The guest cannot skip the reveal; the host can.
+    expect(((await (await call(bob, "POST", `/api/games/${id}/round`)).json()) as GameState).round).toBeNull();
+    expect(((await (await call(alice, "POST", `/api/games/${id}/round`)).json()) as GameState).round?.number).toBe(2);
+
+    // The host leaves: the other player is the host now.
+    expect((await call(alice, "POST", `/api/rooms/${room.code}/leave`)).status).toBe(200);
+    expect(((await (await call(bob, "GET", `/api/games/${id}`)).json()) as GameState).versus?.isHost).toBe(true);
+    expect((await call(bob, "POST", `/api/rooms/${room.code}/leave`)).status).toBe(200);
+    expect((await call(bob, "POST", `/api/rooms/${room.code}/join`)).status).toBe(404);
+  });
 });

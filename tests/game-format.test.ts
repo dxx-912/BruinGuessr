@@ -51,9 +51,9 @@ describe("formatting for the game screens", () => {
 describe("working out which screen a game is on", () => {
   const base: GameState = {
     id: "g", mode: "solo", status: "active", roundCount: 5, roundSeconds: 30,
-    currentRound: 0, serverNow: 0, totalScore: 0, round: null, results: [],
+    currentRound: 0, serverNow: 0, totalScore: 0, round: null, results: [], versus: null,
   };
-  const open = { number: 2, startsAt: 0, deadlineAt: 30_000, graceMs: 1500, pin: null };
+  const open = { number: 2, startsAt: 0, deadlineAt: 30_000, graceMs: 1500, pin: null, locked: false };
 
   it("follows the game from first round to summary", () => {
     expect(phaseOf(base)).toBe("ready");

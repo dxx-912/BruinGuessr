@@ -31,6 +31,10 @@ export async function GET(request: Request) {
   const { data, error } = await supabase.auth.verifyOtp({ token_hash: token, type: "magiclink" });
   if (error) return new Response(`Could not sign in the test account: ${error.message}`, { status: 500 });
 
+  // The live site shares this database. Test accounts are flagged so their
+  // games never show on the public leaderboard.
+  if (data.user) await admin.from("profiles").upsert({ id: data.user.id, is_test: true });
+
   // Like a real first sign in: no username yet means the username page first.
   const next = safeNextPath(url.searchParams.get("next"));
   if (data.user && !(await usernameOf(data.user.id))) {

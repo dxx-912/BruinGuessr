@@ -4,16 +4,20 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoJSONSource, LngLatBoundsLike, Map as MapLibreMap, Marker } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 import type { LatLng, RoundResult } from "@/lib/game/types";
+import { seatColor } from "@/lib/versus/types";
 import { CAMPUS_BBOX, CAMPUS_GEOJSON, paddedBbox } from "@/lib/map/campus";
 import { loadMapLibre, MAP_STYLE_URL } from "@/lib/map/maplibre";
 
+/** A player in a versus game, as the map needs them: a seat (for the colour) and a letter. */
+export type MapPlayer = { seat: number; label: string; isYou: boolean };
+
 export type MapView =
   /** Guessing: a click drops the pin, and the pin can be dragged. */
-  | { kind: "guess"; pin: LatLng | null; canPlace: boolean }
-  /** One round's reveal: the guess, the answer, and a line between them. */
-  | { kind: "reveal"; result: RoundResult }
-  /** Every round at once. `focus` zooms to one of them. */
-  | { kind: "summary"; results: RoundResult[]; focus: number | null };
+  | { kind: "guess"; pin: LatLng | null; canPlace: boolean; player?: MapPlayer | null }
+  /** One round's reveal: the guess, the answer, and a line between them. With `players`, every player's pin. */
+  | { kind: "reveal"; result: RoundResult; players?: MapPlayer[] | null }
+  /** Every round at once. `focus` zooms to one of them and, with `players`, adds everyone's pin for that round. */
+  | { kind: "summary"; results: RoundResult[]; focus: number | null; players?: MapPlayer[] | null };
 
 type Props = {
   view: MapView;
@@ -39,6 +43,19 @@ function guessPinElement(label?: number): HTMLElement {
   return el;
 }
 
+/** A versus player's pin: a teardrop in their seat colour with their initial. Your own is a little larger. */
+function playerPinElement(player: MapPlayer): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "map-pin";
+  if (player.isYou) el.style.zIndex = "2";
+  const [w, h] = player.isYou ? [38, 49] : [30, 39];
+  const svg = `<svg width="${w}" height="${h}" viewBox="0 0 34 44"><path d="M17 2C8.7 2 2 8.6 2 16.8 2 27.600 17 42 17 42s15-14.400 15-25.200C32 8.600 25.300 2 17 2z" fill="${seatColor(player.seat)}" stroke="#fff" stroke-width="3"/><text x="17" y="22.500" text-anchor="middle" font-family="var(--font-display)" font-style="italic" font-weight="800" font-size="16" fill="#fff"></text></svg>`;
+  el.innerHTML = svg;
+  // The letter comes from a username, so it goes in as text, never as markup.
+  el.querySelector("text")!.textContent = player.label;
+  return el;
+}
+
 /** The true location: a gold flag. With a number, the small version used on the summary map. */
 function answerPinElement(label?: number): HTMLElement {
   const el = document.createElement("div");
@@ -51,9 +68,32 @@ function answerPinElement(label?: number): HTMLElement {
 
 const toLngLat = (p: LatLng): [number, number] => [p.lng, p.lat];
 
-function lineFeature(from: LatLng, to: LatLng, share = 1) {
+function lineFeature(from: LatLng, to: LatLng, share = 1, color: string = NIGHT) {
   const end: [number, number] = [from.lng + (to.lng - from.lng) * share, from.lat + (to.lat - from.lat) * share];
-  return { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: [toLngLat(from), end] } };
+  return { type: "Feature" as const, properties: { color }, geometry: { type: "LineString" as const, coordinates: [toLngLat(from), end] } };
+}
+
+const lineCollection = (features: ReturnType<typeof lineFeature>[]) => ({ type: "FeatureCollection" as const, features });
+
+function boundsOf(points: LatLng[]): LngLatBoundsLike {
+  return [
+    [Math.min(...points.map((p) => p.lng)), Math.min(...points.map((p) => p.lat))],
+    [Math.max(...points.map((p) => p.lng)), Math.max(...points.map((p) => p.lat))],
+  ];
+}
+
+/** The pins to show for one scored round: every player's in a versus game, otherwise the player's own. */
+function pinsOf(result: RoundResult, players: MapPlayer[] | null | undefined): { at: LatLng; player: MapPlayer | null }[] {
+  if (players && result.players) {
+    return result.players
+      .flatMap((p) => {
+        const player = players.find((m) => m.seat === p.seat);
+        return p.guess && player ? [{ at: p.guess, player }] : [];
+      })
+      // Your own pin goes on last, so it sits on top.
+      .sort((a, b) => Number(a.player.isYou) - Number(b.player.isYou));
+  }
+  return result.guess ? [{ at: result.guess, player: null }] : [];
 }
 
 /** Fits the whole campus in view. Skipped while the map's box is too small to hold it. */
@@ -138,7 +178,8 @@ export default function GameMap({ view, onPin, inset }: Props) {
             id: "lines",
             type: "line",
             source: "lines",
-            paint: { "line-color": NIGHT, "line-width": 3, "line-dasharray": [1.6, 1.4] },
+            // Versus lines carry their player's colour.
+            paint: { "line-color": ["coalesce", ["get", "color"], NIGHT], "line-width": 3, "line-dasharray": [1.6, 1.4] },
           });
           setReady(true);
         });
@@ -185,6 +226,9 @@ export default function GameMap({ view, onPin, inset }: Props) {
   const result = view.kind === "reveal" ? view.result : null;
   const results = view.kind === "summary" ? view.results : null;
   const focus = view.kind === "summary" ? view.focus : null;
+  const players = view.kind === "reveal" || view.kind === "summary" ? (view.players ?? null) : null;
+  /** Versus: the player's own colour and letter, for the pin they are placing. */
+  const me = view.kind === "guess" ? (view.player ?? null) : null;
 
   // A new view starts from a clean map.
   useEffect(() => {
@@ -198,7 +242,7 @@ export default function GameMap({ view, onPin, inset }: Props) {
       guessMarker.current = null;
       (map.getSource("lines") as GeoJSONSource | undefined)?.setData(EMPTY);
     };
-  }, [ready, kind, result, results]);
+  }, [ready, kind, result, results, players]);
 
   // Guessing: frame the campus when the round starts, then keep the pin where the player put it.
   useEffect(() => {
@@ -219,7 +263,7 @@ export default function GameMap({ view, onPin, inset }: Props) {
       return;
     }
     if (!guessMarker.current) {
-      const marker = new MarkerClass({ element: guessPinElement(), anchor: "bottom", draggable: canPlace });
+      const marker = new MarkerClass({ element: me ? playerPinElement(me) : guessPinElement(), anchor: "bottom", draggable: canPlace });
       marker.on("dragend", () => {
         const at = marker.getLngLat();
         const { view: current, onPin: place } = live.current;
@@ -231,9 +275,9 @@ export default function GameMap({ view, onPin, inset }: Props) {
     }
     guessMarker.current.setDraggable(canPlace);
     guessMarker.current.getElement().dataset.draggable = String(canPlace);
-  }, [ready, kind, pin, canPlace]);
+  }, [ready, kind, pin, canPlace, me]);
 
-  // Reveal: guess pin, a line drawn out to the answer, then the flag.
+  // Reveal: the pins, a line drawn out from each to the answer, then the flag.
   useEffect(() => {
     const map = mapRef.current;
     const MarkerClass = markerClass.current;
@@ -246,34 +290,35 @@ export default function GameMap({ view, onPin, inset }: Props) {
       extraMarkers.current.push(new MarkerClass({ element: answerPinElement(), anchor: "bottom-left", offset: [-7, 4] }).setLngLat(toLngLat(result.answer)).addTo(map));
     };
 
-    if (!result.guess) {
+    const pins = pinsOf(result, players);
+    if (!pins.length) {
       flag();
       map.flyTo({ center: toLngLat(result.answer), zoom: 16.5, padding: pad, duration: quick ? 0 : 900 });
       return;
     }
 
-    const guess = result.guess;
-    guessMarker.current = new MarkerClass({ element: guessPinElement(), anchor: "bottom" }).setLngLat(toLngLat(guess)).addTo(map);
-    const bounds: LngLatBoundsLike = [
-      [Math.min(guess.lng, result.answer.lng), Math.min(guess.lat, result.answer.lat)],
-      [Math.max(guess.lng, result.answer.lng), Math.max(guess.lat, result.answer.lat)],
-    ];
-    map.fitBounds(bounds, { padding: pad, maxZoom: 18, duration: quick ? 0 : 800 });
+    for (const pin of pins) {
+      const element = pin.player ? playerPinElement(pin.player) : guessPinElement();
+      extraMarkers.current.push(new MarkerClass({ element, anchor: "bottom" }).setLngLat(toLngLat(pin.at)).addTo(map));
+    }
+    map.fitBounds(boundsOf([result.answer, ...pins.map((pin) => pin.at)]), { padding: pad, maxZoom: 18, duration: quick ? 0 : 800 });
 
+    const lines = (share: number) =>
+      lineCollection(pins.map((pin) => lineFeature(pin.at, result.answer, share, pin.player ? seatColor(pin.player.seat) : NIGHT)));
     if (quick) {
-      source.setData(lineFeature(guess, result.answer));
+      source.setData(lines(1));
       flag();
       return;
     }
     const startedAt = performance.now() + 350;
     const step = (now: number) => {
       const share = Math.min(1, Math.max(0, (now - startedAt) / 650));
-      source.setData(lineFeature(guess, result.answer, 1 - (1 - share) ** 3));
+      source.setData(lines(1 - (1 - share) ** 3));
       if (share < 1) animation.current = requestAnimationFrame(step);
       else flag();
     };
     animation.current = requestAnimationFrame(step);
-  }, [ready, result]);
+  }, [ready, result, players]);
 
   // Summary: every round's pair, numbered.
   useEffect(() => {
@@ -285,24 +330,40 @@ export default function GameMap({ view, onPin, inset }: Props) {
       extraMarkers.current.push(new MarkerClass({ element: answerPinElement(r.round), anchor: "center" }).setLngLat(toLngLat(r.answer)).addTo(map));
       if (r.guess) extraMarkers.current.push(new MarkerClass({ element: guessPinElement(r.round), anchor: "center" }).setLngLat(toLngLat(r.guess)).addTo(map));
     }
-    (map.getSource("lines") as GeoJSONSource).setData({
-      type: "FeatureCollection",
-      features: results.flatMap((r) => (r.guess ? [lineFeature(r.guess, r.answer)] : [])),
-    });
+    (map.getSource("lines") as GeoJSONSource).setData(lineCollection(results.flatMap((r) => (r.guess ? [lineFeature(r.guess, r.answer)] : []))));
   }, [ready, results]);
+
+  // Summary of a versus game: looking at one round adds the other players' pins for it.
+  useEffect(() => {
+    const map = mapRef.current;
+    const MarkerClass = markerClass.current;
+    const round = focus === null ? null : results?.find((r) => r.round === focus);
+    if (!ready || !map || !MarkerClass || !results || !round || !players) return;
+    const others = pinsOf(round, players).filter((pin) => pin.player && !pin.player.isYou);
+    if (!others.length) return;
+    const source = map.getSource("lines") as GeoJSONSource;
+    const own = results.flatMap((r) => (r.guess ? [lineFeature(r.guess, r.answer)] : []));
+    const markers = others.map((pin) => new MarkerClass({ element: playerPinElement(pin.player!), anchor: "bottom" }).setLngLat(toLngLat(pin.at)).addTo(map));
+    source.setData(lineCollection([...own, ...others.map((pin) => lineFeature(pin.at, round.answer, 1, seatColor(pin.player!.seat)))]));
+    return () => {
+      for (const marker of markers) marker.remove();
+      (map.getSource("lines") as GeoJSONSource | undefined)?.setData(lineCollection(own));
+    };
+  }, [ready, results, focus, players]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || !results) return;
     const shown = focus === null ? results : results.filter((r) => r.round === focus);
-    const points = shown.flatMap((r) => (r.guess ? [r.answer, r.guess] : [r.answer]));
+    const points = shown.flatMap((r) => [
+      r.answer,
+      ...(r.guess ? [r.guess] : []),
+      // A round in focus also frames everyone else's pin.
+      ...(focus === null ? [] : pinsOf(r, players).map((pin) => pin.at)),
+    ]);
     if (!points.length) return;
-    const bounds: LngLatBoundsLike = [
-      [Math.min(...points.map((p) => p.lng)), Math.min(...points.map((p) => p.lat))],
-      [Math.max(...points.map((p) => p.lng)), Math.max(...points.map((p) => p.lat))],
-    ];
-    map.fitBounds(bounds, { padding: padding(50, 50), maxZoom: 17.5, duration: reducedMotion() ? 0 : 600 });
-  }, [ready, results, focus]);
+    map.fitBounds(boundsOf(points), { padding: padding(50, 50), maxZoom: 17.5, duration: reducedMotion() ? 0 : 600 });
+  }, [ready, results, focus, players]);
 
   return (
     <div className="game-map relative h-full w-full bg-[#dfe7ee]" data-placing={canPlace}>
