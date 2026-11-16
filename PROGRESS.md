@@ -17,7 +17,7 @@ Read SPEC.md first, then this file.
 - Three sources feed one local catalog in `.cache/pipeline/` (gitignored). Commands are listed in README.md.
 - Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
-- `npm run photos:report` prints the pool, coverage and live anti-cheat checks. Eight of nine pass; see "One open problem" under Phase 2.
+- `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All nine pass (since 2026-11-16).
 - `npm test`: 80 tests. `npm run test:live`: 19 tests against the real database.
 
 ### Decided by Daniel (2026-11-15)
@@ -39,13 +39,11 @@ Read SPEC.md first, then this file.
 - Checks run at the end of the phase: `npm test` (80 passed), `npm run test:live` (19 passed), type-check, lint, production build, and a full game played in headless Chrome at desktop and phone size (a normal guess, a bullseye, time running out with a pin, time running out with no pin, summary, reload on the summary). No console errors.
 - Not tested by me: the real Google sign in. It needs a person at a browser. Everything after sign in was tested through the development-only test login.
 
-### One open problem: 30 old filenames are still reachable (Daniel to run `npm run photos:rotate`)
+### Resolved: old photo filenames were still reachable through the CDN
 
-- `npm run photos:report` has **one failing check**: "public key cannot fetch a photo by its storage filename".
-- Cause: in Phase 1 the bucket was public and the report script fetched sample photos by public URL. Supabase's CDN cached those 30 files for a year and still serves them, even though the bucket is private now. Purging the CDN is not available on this plan (tried: "feature not enabled").
-- Risk today: low. A filename is 32 random hex characters and has never been sent to a browser, and a photo without its location is not an answer.
-- Still failing on 2026-11-16 (11 of 12 sampled refused). Daniel's first try ran from his home folder, not the project folder, and Claude's own attempts were blocked by the permission check, so it has not run yet.
-- Fix, written but **not run**: from the project folder, `npm run photos:rotate` renames every stored photo to a new random filename (nothing is deleted; rows and `.cache/pipeline/published.json` are updated; a backup of that file is kept). After it, no current filename has ever been public. Run `npm run photos:report` afterwards; all checks should pass.
+- In Phase 1 the bucket was public, and Supabase's CDN cached 30 photos under their old filenames for a year. Purging the CDN is not available on this plan.
+- Fixed 2026-11-16: Daniel ran `npm run photos:rotate` (all 160 photos renamed to new random filenames; nothing deleted; `.cache/pipeline/published.before-rotate.json` is the backup). `npm run photos:report` now passes all nine anti-cheat checks.
+- Run `photos:rotate` again any time a filename might have leaked, when nobody is mid-game.
 
 ### How to test Phase 2
 
@@ -165,4 +163,4 @@ Read SPEC.md first, then this file.
 1. ~~Log the Supabase CLI into the account that owns project `waezvtzepdxiisefivmu`.~~ Done 2026-11-15 (project "UCLA-GeoGuessr", us-east-1).
 2. ~~Turn off the Email provider.~~ Already off when Phase 2 started (checked 2026-11-15).
 3. ~~Add a Wikimedia contact to `.env.local`.~~ Done 2026-11-15.
-4. Run `npm run photos:rotate`, then `npm run photos:report`, **from the project folder** (`cd ~/Desktop/"UCLA GeoGuessr"` first). See "One open problem" under Phase 2.
+4. ~~Run `npm run photos:rotate`.~~ Done 2026-11-16; all anti-cheat checks pass.
