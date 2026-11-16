@@ -64,7 +64,7 @@ Read SPEC.md first, then this file.
 - A reload during the reveal or summary shows the result without the photo, because the photo's address has stopped working by design. The copy in memory is what the reveal and summary use.
 - All of these are columns in the one-row `settings` table, changeable without a code change.
 
-**Phase 3 (accounts and leaderboard): built and checked 2026-11-16. Waiting for Daniel to test and approve. Phase 4 has not started.**
+**Phase 3 (accounts and leaderboard): done and approved by Daniel 2026-11-16. Phase 4 (versus) has not started; wait for Daniel to ask for it.**
 
 - Usernames: picked once, on the first sign in (`/welcome`). 3 to 16 letters, numbers or underscores; unique ignoring case; shown as typed. The Google callback, the dev login, the home page, the game page and `POST /api/games` all send a player without a username to `/welcome` first (the API answers 403 `no_username`).
 - Profanity filter: the `obscenity` package (catches "sh1t", "fuuuck", leaves "assassin" and "Scunthorpe" alone), also checked with underscores removed, plus a short reserved list (admin, moderator, BruinGuessr, UCLA, Joe Bruin…). Server only; the word list is not in the browser bundle (checked).
