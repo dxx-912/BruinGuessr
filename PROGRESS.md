@@ -13,12 +13,12 @@ Read SPEC.md first, then this file.
 
 **Phase 1 (image pipeline): built, 160 photos live, waiting for Daniel's review of the last Wikimedia batch and his own photos (2026-11-15).**
 
-- Database: `supabase/migrations/20261115000100_images.sql` is applied (table `images`, public bucket `photos`). Apply new migrations with `supabase db push --yes` (the CLI is linked and needs no password).
+- Database: `supabase/migrations/20261115000100_images.sql` is applied (table `images`, bucket `photos`, private since Phase 2). Apply new migrations with `supabase db push --yes` (the CLI is linked and needs no password).
 - Three sources feed one local catalog in `.cache/pipeline/` (gitignored). Commands are listed in README.md.
 - Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
-- `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All six checks pass.
-- `npm test`: 68 tests.
+- `npm run photos:report` prints the pool, coverage and live anti-cheat checks. Eight of nine pass; see "One open problem" under Phase 2.
+- `npm test`: 80 tests. `npm run test:live`: 19 tests against the real database.
 
 ### Decided by Daniel (2026-11-15)
 
@@ -32,22 +32,46 @@ Read SPEC.md first, then this file.
 1. **35 newly downloaded Wikimedia photos** are "waiting" on `/dev/photos` (Source: Wikimedia, Status: Waiting). He asked to review these himself. Nothing from them is live.
 2. **His own photos** of the Hill and the northwest: see "Adding your own photos" in README.md.
 
-**Phase 2 (single player): not started. Waiting for Daniel's go-ahead.**
+**Phase 2 (single player): built and checked 2026-11-15. Waiting for Daniel to test and approve. Phase 3 has not started.**
 
-### Phase 2 notes for whoever starts it
+- Google sign in, the full five-round game, the per-round photo address, photo reports and the photographer credit on the reveal are all in. How it works is in README.md ("How the game works"); the look is in DESIGN.md.
+- Database: migrations `20261115000200_single_player.sql` and `20261115000300_score_far_guess.sql` are applied. The `photos` bucket is now **private**.
+- Checks run at the end of the phase: `npm test` (80 passed), `npm run test:live` (19 passed), type-check, lint, production build, and a full game played in headless Chrome at desktop and phone size (a normal guess, a bullseye, time running out with a pin, time running out with no pin, summary, reload on the summary). No console errors.
+- Not tested by me: the real Google sign in. It needs a person at a browser. Everything after sign in was tested through the development-only test login.
 
-- Added by Daniel on 2026-11-15 (now in SPEC.md): each round's photo is served through a **per-round URL that stops working once the round ends**; the permanent storage address never reaches a player.
-- How I plan to build that:
-  - Make the `photos` bucket **private** (new migration). Today it is public, which was fine while only the server knew the filenames, but a private bucket means a leaked filename is useless.
-  - A route such as `/api/games/[id]/rounds/[n]/photo` checks that the signed-in player owns the game and that round `n` has started and is not yet resolved, then streams the bytes from Storage with the secret key. After the round resolves it returns 404.
-  - Do not use Supabase signed URLs for this: a signed URL contains the permanent filename.
-  - Send `Cache-Control: private, no-store` so the browser does not keep a copy under a reusable address. The reveal screen needs the photo too, so it should keep showing the copy already in memory (an object URL), not refetch.
-  - Update `photos:report`: the "bucket cannot be listed" check stays, and add "a photo cannot be fetched by its storage path with the public key".
-  - Limit: this stops address-to-answer tables. It cannot stop someone recognising a photo they have seen before, or matching the image content itself; no scheme can.
-- First step of Phase 2 is bare Google sign in. Daniel must turn off the Email provider first (manual step 2 below).
-- The app needs a `server-only` Supabase admin client; `adminClient()` in `src/lib/pipeline/publish.ts` is for scripts.
-- Scoring lives in SQL (database clock, atomic). `src/lib/geo/scoring.ts` is the tested reference to check the SQL against. D goes into the database from `data/campus.geojson` (2,297.5 m).
-- The schema proposed and approved in the plan review: `profiles`, `image_reports`, `games`, `game_rounds`, `game_players`, `guesses`, `rooms`, `room_members`, `settings`. Round count and timer length are per-game columns (defaults 5 and 30). Pins are saved to the server as they are placed, so the guess exists at zero without a last-second request.
+### One open problem: 30 old filenames are still reachable (needs Daniel's go-ahead)
+
+- `npm run photos:report` has **one failing check**: "public key cannot fetch a photo by its storage filename".
+- Cause: in Phase 1 the bucket was public and the report script fetched sample photos by public URL. Supabase's CDN cached those 30 files for a year and still serves them, even though the bucket is private now. Purging the CDN is not available on this plan (tried: "feature not enabled").
+- Risk today: low. A filename is 32 random hex characters and has never been sent to a browser, and a photo without its location is not an answer.
+- Fix, written but **not run**: `npm run photos:rotate` renames every stored photo to a new random filename (nothing is deleted; rows and `.cache/pipeline/published.json` are updated; a backup of that file is kept). After it, no current filename has ever been public. Run `npm run photos:report` afterwards; all checks should pass.
+
+### How to test Phase 2
+
+1. `npm run dev`, open http://localhost:3000, click "Sign in with Google to play", pick an account. You should land back on the home page with your name at top right.
+2. "Play solo". Play five rounds: try a normal guess, try letting the clock run out with a pin on the map (it should count), and once with no pin (0 points).
+3. On a reveal: check the photographer credit, click the photo thumbnail, try "Report photo".
+4. During a round, open the browser's Network tab: the photo comes from `/api/games/…/rounds/N/photo`. Copy that address and open it after the round ends: it should say "Not found".
+5. To test without Google or with several accounts: http://localhost:3000/api/dev/login?as=1 (1 to 9, development only).
+6. Reported photos: `npm run photos:reports`.
+
+### Decisions made in Phase 2 (say so if you want any changed)
+
+- A round opens 2.5 s before its clock starts. The photo loads behind a "Round N" card, so the player gets the full 30 s. The server still sets every time.
+- Guesses are accepted up to 1.5 s after the deadline (the "small grace period" in the spec).
+- Report cap: 10 per account per 24 hours. One report per account per photo. Reports carry a reason.
+- Photos from a player's last 10 games are avoided; photos a player reported are avoided for that player.
+- Starting a new solo game ends an unfinished one ("abandoned"); a player has at most one solo game in progress.
+- A reload during the reveal or summary shows the result without the photo, because the photo's address has stopped working by design. The copy in memory is what the reveal and summary use.
+- All of these are columns in the one-row `settings` table, changeable without a code change.
+
+### Notes for Phase 3 and 4
+
+- Tables already shaped for versus: `games.mode`, `game_players` (one row per player with `total_score`), `guesses` keyed by player. Scoring a round scores every player in the game and gives 0 to anyone without a pin. Not built yet: `rooms`, `room_members`.
+- The leaderboard can read `game_players.total_score` joined to `games` where `status = 'completed'`, with `games.completed_at` for ties.
+- `profiles` has only `id` and `created_at`; Phase 3 adds the username. A trigger creates the profile when an account is created.
+- The development test login creates accounts named `dev-player-N@bruinguessr.test`. Delete them before the leaderboard goes live (all were deleted at the end of Phase 2).
+- Deploy (Phase 5): Vercel needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, and Supabase needs the production URL in Site URL and redirect URLs. Until then the deployed site cannot sign anyone in.
 
 ### Coverage (153 inside-campus photos; the 7 buffer photos are not in this grid, 7 × 7 grid, north up, `·` is outside campus)
 
@@ -82,6 +106,7 @@ Read SPEC.md first, then this file.
 - `npm run typecheck` runs `next typegen` first; plain `tsc` fails on `LayoutProps` without it.
 - The app was scaffolded in a temp folder named `bruinguessr` and copied in, because the repo folder name has spaces and capitals.
 - Dev-only pages and APIs (`/dev/*`, `/api/dev/*`) return 404 unless `NODE_ENV` is `development`. Checked against a production build.
+- Phase 2 tooling: with Cache Components, anything that reads the session must call `await connection()` first (`currentUser()` does), or Next reports "Date.now() while prerendering". A redirect from a page that streams arrives in the page body with status 200, not as an HTTP redirect. Postgres `exp()` raises on underflow, and a `float8` loses a little precision when put in `jsonb` (about 14 digits).
 - Looking at pages: the Claude in Chrome extension did not respond in this session. What worked was driving the installed Chrome headlessly with `puppeteer-core` (flags `--enable-unsafe-swiftshader --use-angle=swiftshader`), waiting for `.maplibregl-canvas`, then screenshotting. That is how both review pages were verified, including dragging a pin.
 - Overpass API mirrors were flaky; the boundary build uses the main OSM API by object ID instead, with downloads cached in `.cache/osm/`.
 - Mapillary: `on_foot` and `quality_score` are real API fields. Thumbnail URLs expire, so the script asks for a fresh one right before each download.
@@ -93,10 +118,10 @@ Read SPEC.md first, then this file.
 - A rejected photo stays in the candidate list and its near duplicates are not promoted, because what was wrong with it (glare, car hood) is usually wrong with its neighbours.
 - Filters (all in `src/lib/pipeline/config.ts`): Mapillary quality ≥ 0.5; near duplicates are photos within 22 m facing within 40° of each other; buffer photos must have campus ground within 70 m inside a ±30° field of view. I reviewed all 142 inside candidates and rejected 25 (glare, dark, car hood, bare wall). Lowest sharpness among kept photos is still clearly sharp, so the blur filter never fired.
 - Served file: WebP, 1600 px long edge, quality 80, about 270 KB. sharp re-encodes from pixels, so no metadata survives; a test and the publish step both verify that.
-- Storage filenames are 32 random hex characters, unrelated to our ID or the source ID. The bucket is public (fetch by exact URL) with no policies (no listing, no uploads).
+- Storage filenames are 32 random hex characters, unrelated to our ID or the source ID. The bucket was public in Phase 1 and is private since Phase 2; it has no policies (no listing, no uploads).
 - Wikimedia: only CC0, CC BY and CC BY-SA; "Public domain" and FAL were refused (5 files). Commons serves only its standard thumbnail widths freely, so the script asks for 1920 px and never the original. Commons camera coordinates were sanity-checked against the building each title names.
 - Own photos are keyed by a hash of the file contents, start as "waiting", and are placed or corrected on `/dev/photos`. HEIC is converted with macOS `sips`. Publishing also pushes moved pins and withdraws rejected photos (`hidden_reason = 'withdrawn in review'`), and never un-hides a photo that players reported.
-- The Supabase project uses the new-style keys (`sb_publishable_…`, `sb_secret_…`) under the old env names. `adminClient()` in `src/lib/pipeline/publish.ts` is the script-side client; Phase 2 needs a `server-only` version for the app.
+- The Supabase project uses the new-style keys (`sb_publishable_…`, `sb_secret_…`) under the old env names. `adminClient()` in `src/lib/pipeline/publish.ts` is the script-side client; the app's `server-only` clients are in `src/lib/server/supabase.ts`.
 
 ## Photo supply (measured 2026-11-15)
 
@@ -107,5 +132,6 @@ Read SPEC.md first, then this file.
 ## Things Daniel needs to do by hand
 
 1. ~~Log the Supabase CLI into the account that owns project `waezvtzepdxiisefivmu`.~~ Done 2026-11-15 (project "UCLA-GeoGuessr", us-east-1).
-2. Before Phase 2: turn off the Email provider. Supabase dashboard → project → Authentication → Sign In / Providers → Email → switch off → Save.
+2. ~~Turn off the Email provider.~~ Already off when Phase 2 started (checked 2026-11-15).
 3. ~~Add a Wikimedia contact to `.env.local`.~~ Done 2026-11-15.
+4. Decide on `npm run photos:rotate` (see "One open problem" under Phase 2).

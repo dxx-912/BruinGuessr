@@ -18,14 +18,19 @@
     "photos:sheets": "tsx scripts/pipeline/sheets.ts",
     "photos:decide": "tsx scripts/pipeline/decide.ts",
     "photos:publish": "tsx --env-file=.env.local scripts/pipeline/publish.ts",
-    "photos:report": "tsx --env-file=.env.local scripts/pipeline/report.ts"
+    "photos:report": "tsx --env-file=.env.local scripts/pipeline/report.ts",
+    "test:live": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run --config vitest.live.config.mts",
+    "photos:reports": "tsx --env-file=.env.local scripts/pipeline/reports.ts",
+    "photos:rotate": "tsx --env-file=.env.local scripts/pipeline/rotate-filenames.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "maplibre-gl": "^6.18.0",
     "next": "16.4.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@mapbox/vector-tile": "^3.0.0",

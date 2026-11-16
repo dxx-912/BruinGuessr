@@ -241,6 +241,12 @@ async function main() {
   const boundary = feature(shape.geometry, props, { bbox });
   await writeFile(path.join(DATA_DIR, "campus.geojson"), JSON.stringify(boundary, null, 1) + "\n");
 
+  // The same outline in a small file the app can import directly (the game map
+  // and the home page drawing). tests/campus-outline.test.ts checks the two agree.
+  const polygons = shape.geometry.type === "Polygon" ? [shape.geometry.coordinates] : shape.geometry.coordinates;
+  const outlineFile = { bbox, diagonalM: props.diagonal_m, polygons };
+  await writeFile(path.join(DATA_DIR, "../src/lib/map/campus-outline.json"), JSON.stringify(outlineFile) + "\n");
+
   // --- 5. Report -----------------------------------------------------------------------
   const size = bboxSizeMeters(bbox);
   console.log("\nCandidate areas:");
@@ -254,7 +260,7 @@ async function main() {
   console.log(`  bbox      ${bbox.map((n) => n.toFixed(6)).join(", ")}`);
   console.log(`  size      ${size.width.toFixed(0)} m wide × ${size.height.toFixed(0)} m tall`);
   console.log(`  D         ${props.diagonal_m} m`);
-  console.log("\nWrote data/campus-areas.geojson and data/campus.geojson");
+  console.log("\nWrote data/campus-areas.geojson, data/campus.geojson and src/lib/map/campus-outline.json");
 }
 
 main().catch((err) => {

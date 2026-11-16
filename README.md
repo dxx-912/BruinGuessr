@@ -10,14 +10,42 @@ A GeoGuessr-style game for UCLA's campus. You see a photo taken somewhere on cam
 npm install
 npm run dev          # http://localhost:3000
 npm test             # unit tests
+npm run test:live    # game rules against the real database (see "Tests" below)
 npm run typecheck
+npm run lint
 ```
 
 `.env.local` (not committed) holds `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `MAPILLARY_TOKEN`.
 
+## How the game works
+
+Sign in is Google only (Supabase Auth). A signed-in player presses "Play solo" and plays five rounds.
+
+- **The server runs the game.** Every rule, deadline and score is a Postgres function in `supabase/migrations/` that uses the database clock. The browser only calls `/api/games/...` routes; it never talks to the database, and every table refuses the public key.
+- **Each round's photo has a per-round address**: `/api/games/<game>/rounds/<n>/photo`. It works only for the player in that game and only while that round is open. Once the round is scored it answers 404 for good. The photo's real filename in Storage never reaches the browser, and the Storage bucket is private.
+- **The pin is saved every time it moves**, so when the clock hits zero the guess is already on the server. Guesses are accepted up to 1.5 seconds after the deadline to allow for network delay.
+- **A round opens 2.5 seconds before its clock starts.** The photo loads behind the "Round N" card, so the player gets the full 30 seconds.
+- **Reporting.** The reveal screen has "Report photo". A photo reported by three different accounts leaves rotation (it is hidden, never deleted). Each account can file 10 reports in 24 hours. Review them with `npm run photos:reports`.
+
+The visual direction is written up in `DESIGN.md`.
+
+### Testing without Google
+
+In development only, `http://localhost:3000/api/dev/login?as=1` signs the browser in as a test account ("Dev Player 1"; `as` can be 1 to 9). It returns 404 on the deployed site.
+
+## Tests
+
+| Command | What it checks | Needs |
+|---|---|---|
+| `npm test` | Scoring, geometry, the photo pipeline, formatting | nothing |
+| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
+| `npm run photos:report` | Photo pool and live anti-cheat checks | `.env.local` |
+
+The live tests create throwaway accounts and games and delete them when they finish.
+
 ## Campus boundary
 
-`data/campus.geojson` is the approved boundary, built from OpenStreetMap by `npm run campus:build`. Its bounding-box diagonal is the scoring constant D. Review page (development only): `/dev/boundary`.
+`data/campus.geojson` is the approved boundary, built from OpenStreetMap by `npm run campus:build`. Its bounding-box diagonal is the scoring constant D (2,297.5 m), which the database holds in its `settings` table. The same build writes `src/lib/map/campus-outline.json`, the copy the app draws. Review page (development only): `/dev/boundary`.
 
 ## Photo pipeline
 
@@ -32,6 +60,8 @@ Photos come from three sources. Each script writes candidates into `.cache/pipel
 | `npm run photos:decide -- --sheet NAME --reject 3,7-9` | Record decisions by contact-sheet number |
 | `npm run photos:publish` | Upload approved photos to Supabase; update moved pins; withdraw rejected ones |
 | `npm run photos:report` | Pool size, coverage across campus, and live anti-cheat checks |
+| `npm run photos:rotate` | Give every stored photo a new random filename (run when nobody is playing) |
+| `npm run photos:reports` | Photos that players reported; `-- keep <id>` or `-- remove <id>` to decide |
 
 Review page (development only): `/dev/photos`. Approve or reject photos, drag a pin to correct a location, then publish.
 

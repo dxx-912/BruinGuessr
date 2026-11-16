@@ -1,14 +1,222 @@
 @import "tailwindcss";
 
-/* Brand tokens. The full visual design arrives in Phase 2; these are the two fixed colors. */
+/* Design tokens. The direction behind them is written up in DESIGN.md. */
 @theme inline {
+  --color-night: #06182b;
+  --color-navy: #0b2742;
+  --color-navy-line: #1c4467;
   --color-ucla-blue: #2774ae;
+  --color-sky: #8bb8e8;
   --color-ucla-gold: #ffd100;
+  --color-gold-deep: #b38f00;
+  --color-paper: #f4f8fc;
+  --color-alarm: #ff5a4d;
+  /* Used by the development review pages. */
   --color-ink: #0b1f33;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --font-sans: var(--font-barlow), system-ui, sans-serif;
+  --font-display: var(--font-barlow-condensed), "Arial Narrow", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --animate-pop: pop 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  --animate-rise: rise 0.32s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  --animate-fade: fade 0.2s ease-out both;
+  --animate-stamp: stamp 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+  --animate-beat: beat 1s ease-in-out infinite;
+  --animate-drop: drop 0.9s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+  /* The points bar filling from empty, in step with the count-up beside it. */
+  --animate-fill: fill 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) 0.45s both;
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes stamp {
+  from { opacity: 0; transform: rotate(-7deg) scale(2.4); }
+  to { opacity: 1; transform: rotate(-7deg) scale(1); }
+}
+@keyframes beat {
+  0%, 100% { transform: scale(1); }
+  12% { transform: scale(1.09); }
+  30% { transform: scale(1); }
+}
+@keyframes fill {
+  from { transform: scaleX(0); }
+}
+@keyframes drop {
+  from { opacity: 0; transform: translateY(-70px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+html {
+  background: var(--color-night);
+  color-scheme: dark;
 }
 
 body {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--color-paper);
+}
+
+@layer components {
+  /* Jersey-number type: condensed, heavy, slanted. Headings, labels on buttons, scores. */
+  .display {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    text-transform: uppercase;
+    line-height: 0.95;
+    letter-spacing: 0.005em;
+  }
+
+  .numeric {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Buttons are physical: a solid lip underneath that the button sinks into when pressed. */
+  .btn {
+    --lip: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 14px;
+    padding: 0.7rem 1.4rem;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 1.35rem;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: var(--lip);
+    box-shadow: 0 var(--lip) 0 var(--lip-color);
+    transition: transform 80ms ease-out, box-shadow 80ms ease-out, background-color 120ms;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(3px);
+    box-shadow: 0 calc(var(--lip) - 3px) 0 var(--lip-color);
+  }
+  .btn:focus-visible {
+    outline: 3px solid var(--color-paper);
+    outline-offset: 3px;
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+  }
+
+  .btn-gold {
+    --lip-color: var(--color-gold-deep);
+    background: var(--color-ucla-gold);
+    color: var(--color-night);
+  }
+  .btn-gold:hover:not(:disabled) {
+    background: #ffdc33;
+  }
+  .btn-gold:disabled {
+    --lip-color: #14283c;
+    background: #284560;
+    color: #8ea6bd;
+  }
+
+  .btn-blue {
+    --lip-color: #17507c;
+    background: var(--color-ucla-blue);
+    color: var(--color-paper);
+  }
+  .btn-blue:hover:not(:disabled) {
+    background: #2f82c2;
+  }
+
+  .btn-white {
+    --lip-color: #a9bccd;
+    background: #ffffff;
+    color: var(--color-night);
+  }
+  .btn-white:hover:not(:disabled) {
+    background: var(--color-paper);
+  }
+
+  /* A quiet button for secondary actions: no lip, just an outline. */
+  .btn-quiet {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 10px;
+    border: 2px solid var(--color-navy-line);
+    padding: 0.35rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--color-paper);
+    cursor: pointer;
+    transition: background-color 120ms, border-color 120ms;
+  }
+  .btn-quiet:hover:not(:disabled) {
+    background: var(--color-navy-line);
+  }
+  .btn-quiet:focus-visible {
+    outline: 2px solid var(--color-paper);
+    outline-offset: 2px;
+  }
+
+  /* A panel that floats over the photo or the map. */
+  .panel {
+    background: var(--color-navy);
+    border: 2px solid var(--color-navy-line);
+    border-radius: 20px;
+    box-shadow: 0 14px 34px rgb(2 10 20 / 0.5);
+  }
+}
+
+/* The map's own controls, restyled to sit on the navy panels. */
+.game-map .maplibregl-ctrl-group {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 0 rgb(2 10 20 / 0.35);
+}
+.game-map .maplibregl-ctrl-attrib {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: #1b2b3a;
+}
+.game-map .maplibregl-canvas:focus-visible {
+  outline: none;
+}
+.game-map[data-placing="true"] .maplibregl-canvas {
+  cursor: crosshair;
+}
+
+.map-pin {
+  cursor: default;
+  filter: drop-shadow(0 3px 2px rgb(2 10 20 / 0.45));
+}
+.map-pin[data-draggable="true"] {
+  cursor: grab;
+}
+.map-pin svg {
+  display: block;
+  animation: drop 0.35s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

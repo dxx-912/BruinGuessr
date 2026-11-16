@@ -1,0 +1,321 @@
+"use client";
+
+import "maplibre-gl/dist/maplibre-gl.css";
+import type { GeoJSONSource, LngLatBoundsLike, Map as MapLibreMap, Marker } from "maplibre-gl";
+import { useEffect, useRef, useState } from "react";
+import type { LatLng, RoundResult } from "@/lib/game/types";
+import { CAMPUS_BBOX, CAMPUS_GEOJSON, paddedBbox } from "@/lib/map/campus";
+import { loadMapLibre, MAP_STYLE_URL } from "@/lib/map/maplibre";
+
+export type MapView =
+  /** Guessing: a click drops the pin, and the pin can be dragged. */
+  | { kind: "guess"; pin: LatLng | null; canPlace: boolean }
+  /** One round's reveal: the guess, the answer, and a line between them. */
+  | { kind: "reveal"; result: RoundResult }
+  /** Every round at once. `focus` zooms to one of them. */
+  | { kind: "summary"; results: RoundResult[]; focus: number | null };
+
+type Props = {
+  view: MapView;
+  onPin: (pin: LatLng) => void;
+  /** Space the camera should keep clear, in pixels, where panels cover the map. */
+  inset?: { top?: number; bottom?: number; left?: number; right?: number };
+};
+
+const BLUE = "#2774AE";
+const GOLD = "#FFD100";
+const NIGHT = "#06182B";
+const EMPTY = { type: "FeatureCollection" as const, features: [] };
+
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** The player's pin: a blue teardrop. With a number, the small version used on the summary map. */
+function guessPinElement(label?: number): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "map-pin";
+  el.innerHTML = label
+    ? `<svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="${BLUE}" stroke="#fff" stroke-width="3"/><text x="13" y="17.5" text-anchor="middle" font-family="var(--font-display)" font-style="italic" font-weight="800" font-size="13" fill="#fff">${label}</text></svg>`
+    : `<svg width="34" height="44" viewBox="0 0 34 44"><path d="M17 2C8.7 2 2 8.6 2 16.8 2 27.600 17 42 17 42s15-14.400 15-25.200C32 8.600 25.300 2 17 2z" fill="${BLUE}" stroke="#fff" stroke-width="3"/><circle cx="17" cy="17" r="5.500" fill="#fff"/></svg>`;
+  return el;
+}
+
+/** The true location: a gold flag. With a number, the small version used on the summary map. */
+function answerPinElement(label?: number): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "map-pin";
+  el.innerHTML = label
+    ? `<svg width="26" height="26" viewBox="0 0 26 26"><rect x="2" y="2" width="22" height="22" rx="6" fill="${GOLD}" stroke="${NIGHT}" stroke-width="3"/><text x="13" y="17.500" text-anchor="middle" font-family="var(--font-display)" font-style="italic" font-weight="800" font-size="13" fill="${NIGHT}">${label}</text></svg>`
+    : `<svg width="40" height="46" viewBox="0 0 40 46"><path d="M8 5h25l-6 8.500 6 8.500H8z" fill="${GOLD}" stroke="${NIGHT}" stroke-width="3" stroke-linejoin="round"/><rect x="5" y="2" width="5" height="40" rx="2.500" fill="${NIGHT}"/><ellipse cx="7.500" cy="42" rx="6" ry="2.500" fill="${NIGHT}" opacity=".35"/></svg>`;
+  return el;
+}
+
+const toLngLat = (p: LatLng): [number, number] => [p.lng, p.lat];
+
+function lineFeature(from: LatLng, to: LatLng, share = 1) {
+  const end: [number, number] = [from.lng + (to.lng - from.lng) * share, from.lat + (to.lat - from.lat) * share];
+  return { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: [toLngLat(from), end] } };
+}
+
+/** Fits the whole campus in view. Skipped while the map's box is too small to hold it. */
+function frameCampus(map: MapLibreMap) {
+  const box = map.getContainer();
+  if (box.clientWidth < 120 || box.clientHeight < 120) return;
+  map.fitBounds(CAMPUS_BBOX, { padding: 16, duration: 0 });
+}
+
+/**
+ * The campus map. One instance lives for the whole game and is told what to
+ * show through `view`; it is never torn down between rounds, because starting a
+ * map is slow.
+ */
+export default function GameMap({ view, onPin, inset }: Props) {
+  const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markerClass = useRef<typeof Marker | null>(null);
+  const guessMarker = useRef<Marker | null>(null);
+  const extraMarkers = useRef<Marker[]>([]);
+  const animation = useRef(0);
+  /** True while the camera is where we put it. False once the player pans or zooms. */
+  const framed = useRef(true);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // Map event handlers are registered once, so they read the latest props through a ref.
+  // The same goes for `inset`: a panel changing height should not replay the reveal.
+  const live = useRef({ view, onPin, inset });
+  useEffect(() => {
+    live.current = { view, onPin, inset };
+  }, [view, onPin, inset]);
+  const padding = (edge: number, side: number) => {
+    const pad = live.current.inset ?? {};
+    return { top: (pad.top ?? 0) + edge, bottom: (pad.bottom ?? 0) + edge, left: (pad.left ?? 0) + side, right: (pad.right ?? 0) + side };
+  };
+
+  // ---- Start the map once -------------------------------------------------------------
+  useEffect(() => {
+    if (!container.current) return;
+    let cancelled = false;
+    let map: MapLibreMap | undefined;
+    let observer: ResizeObserver | undefined;
+
+    loadMapLibre()
+      .then((maplibre) => {
+        if (cancelled || !container.current) return;
+        markerClass.current = maplibre.Marker;
+        map = new maplibre.Map({
+          container: container.current,
+          style: MAP_STYLE_URL,
+          bounds: CAMPUS_BBOX,
+          fitBoundsOptions: { padding: 16 },
+          // The map is framed to campus. There is room to pan a little, not to wander off.
+          maxBounds: paddedBbox(1500),
+          maxZoom: 19.5,
+          dragRotate: false,
+          pitchWithRotate: false,
+          touchPitch: false,
+          attributionControl: { compact: true },
+        });
+        map.touchZoomRotate.disableRotation();
+        map.keyboard.disableRotation();
+        map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-left");
+        mapRef.current = map;
+        // Lets the browser test in development turn a place into a point on screen.
+        if (process.env.NODE_ENV === "development") (window as unknown as { __bruinguessrMap?: MapLibreMap }).__bruinguessrMap = map;
+
+        map.on("load", () => {
+          if (cancelled || !map) return;
+          map.addSource("campus", { type: "geojson", data: CAMPUS_GEOJSON });
+          map.addSource("lines", { type: "geojson", data: EMPTY });
+          map.addLayer({ id: "campus-line", type: "line", source: "campus", paint: { "line-color": BLUE, "line-width": 2.5, "line-opacity": 0.55 } });
+          map.addLayer({
+            id: "lines-casing",
+            type: "line",
+            source: "lines",
+            layout: { "line-cap": "round" },
+            paint: { "line-color": "#ffffff", "line-width": 6, "line-opacity": 0.9 },
+          });
+          map.addLayer({
+            id: "lines",
+            type: "line",
+            source: "lines",
+            paint: { "line-color": NIGHT, "line-width": 3, "line-dasharray": [1.6, 1.4] },
+          });
+          setReady(true);
+        });
+
+        // The map style names a few icons its sprite sheet does not have. Give it a
+        // blank for each so the console is not filled with warnings about them.
+        map.on("styleimagemissing", (ev) => {
+          if (map && !map.hasImage(ev.id)) map.addImage(ev.id, { width: 1, height: 1, data: new Uint8Array(4) });
+        });
+
+        map.on("movestart", (ev) => {
+          if ((ev as { originalEvent?: unknown }).originalEvent) framed.current = false;
+        });
+
+        map.on("click", (ev) => {
+          const { view: current, onPin: place } = live.current;
+          if (current.kind === "guess" && current.canPlace) place({ lat: ev.lngLat.lat, lng: ev.lngLat.lng });
+        });
+
+        // The map changes size when the dock grows on hover and when the reveal takes over the screen.
+        // While guessing, the campus stays framed as the box changes, until the player moves the map.
+        observer = new ResizeObserver(() => {
+          if (!map) return;
+          map.resize();
+          if (live.current.view.kind === "guess" && framed.current) frameCampus(map);
+        });
+        observer.observe(container.current);
+      })
+      .catch(() => setFailed(true));
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+      cancelAnimationFrame(animation.current);
+      mapRef.current = null;
+      map?.remove();
+    };
+  }, []);
+
+  // ---- Show what `view` asks for ------------------------------------------------------
+  const kind = view.kind;
+  const pin = view.kind === "guess" ? view.pin : null;
+  const canPlace = view.kind === "guess" && view.canPlace;
+  const result = view.kind === "reveal" ? view.result : null;
+  const results = view.kind === "summary" ? view.results : null;
+  const focus = view.kind === "summary" ? view.focus : null;
+
+  // A new view starts from a clean map.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    return () => {
+      cancelAnimationFrame(animation.current);
+      for (const marker of extraMarkers.current) marker.remove();
+      extraMarkers.current = [];
+      guessMarker.current?.remove();
+      guessMarker.current = null;
+      (map.getSource("lines") as GeoJSONSource | undefined)?.setData(EMPTY);
+    };
+  }, [ready, kind, result, results]);
+
+  // Guessing: frame the campus when the round starts, then keep the pin where the player put it.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || kind !== "guess") return;
+    map.resize();
+    framed.current = true;
+    frameCampus(map);
+  }, [ready, kind]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const MarkerClass = markerClass.current;
+    if (!ready || !map || !MarkerClass || kind !== "guess") return;
+    if (!pin) {
+      guessMarker.current?.remove();
+      guessMarker.current = null;
+      return;
+    }
+    if (!guessMarker.current) {
+      const marker = new MarkerClass({ element: guessPinElement(), anchor: "bottom", draggable: canPlace });
+      marker.on("dragend", () => {
+        const at = marker.getLngLat();
+        const { view: current, onPin: place } = live.current;
+        if (current.kind === "guess" && current.canPlace) place({ lat: at.lat, lng: at.lng });
+      });
+      guessMarker.current = marker.setLngLat(toLngLat(pin)).addTo(map);
+    } else {
+      guessMarker.current.setLngLat(toLngLat(pin));
+    }
+    guessMarker.current.setDraggable(canPlace);
+    guessMarker.current.getElement().dataset.draggable = String(canPlace);
+  }, [ready, kind, pin, canPlace]);
+
+  // Reveal: guess pin, a line drawn out to the answer, then the flag.
+  useEffect(() => {
+    const map = mapRef.current;
+    const MarkerClass = markerClass.current;
+    if (!ready || !map || !MarkerClass || !result) return;
+    map.resize();
+    const pad = padding(60, 60);
+    const quick = reducedMotion();
+    const source = map.getSource("lines") as GeoJSONSource;
+    const flag = () => {
+      extraMarkers.current.push(new MarkerClass({ element: answerPinElement(), anchor: "bottom-left", offset: [-7, 4] }).setLngLat(toLngLat(result.answer)).addTo(map));
+    };
+
+    if (!result.guess) {
+      flag();
+      map.flyTo({ center: toLngLat(result.answer), zoom: 16.5, padding: pad, duration: quick ? 0 : 900 });
+      return;
+    }
+
+    const guess = result.guess;
+    guessMarker.current = new MarkerClass({ element: guessPinElement(), anchor: "bottom" }).setLngLat(toLngLat(guess)).addTo(map);
+    const bounds: LngLatBoundsLike = [
+      [Math.min(guess.lng, result.answer.lng), Math.min(guess.lat, result.answer.lat)],
+      [Math.max(guess.lng, result.answer.lng), Math.max(guess.lat, result.answer.lat)],
+    ];
+    map.fitBounds(bounds, { padding: pad, maxZoom: 18, duration: quick ? 0 : 800 });
+
+    if (quick) {
+      source.setData(lineFeature(guess, result.answer));
+      flag();
+      return;
+    }
+    const startedAt = performance.now() + 350;
+    const step = (now: number) => {
+      const share = Math.min(1, Math.max(0, (now - startedAt) / 650));
+      source.setData(lineFeature(guess, result.answer, 1 - (1 - share) ** 3));
+      if (share < 1) animation.current = requestAnimationFrame(step);
+      else flag();
+    };
+    animation.current = requestAnimationFrame(step);
+  }, [ready, result]);
+
+  // Summary: every round's pair, numbered.
+  useEffect(() => {
+    const map = mapRef.current;
+    const MarkerClass = markerClass.current;
+    if (!ready || !map || !MarkerClass || !results) return;
+    map.resize();
+    for (const r of results) {
+      extraMarkers.current.push(new MarkerClass({ element: answerPinElement(r.round), anchor: "center" }).setLngLat(toLngLat(r.answer)).addTo(map));
+      if (r.guess) extraMarkers.current.push(new MarkerClass({ element: guessPinElement(r.round), anchor: "center" }).setLngLat(toLngLat(r.guess)).addTo(map));
+    }
+    (map.getSource("lines") as GeoJSONSource).setData({
+      type: "FeatureCollection",
+      features: results.flatMap((r) => (r.guess ? [lineFeature(r.guess, r.answer)] : [])),
+    });
+  }, [ready, results]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !results) return;
+    const shown = focus === null ? results : results.filter((r) => r.round === focus);
+    const points = shown.flatMap((r) => (r.guess ? [r.answer, r.guess] : [r.answer]));
+    if (!points.length) return;
+    const bounds: LngLatBoundsLike = [
+      [Math.min(...points.map((p) => p.lng)), Math.min(...points.map((p) => p.lat))],
+      [Math.max(...points.map((p) => p.lng)), Math.max(...points.map((p) => p.lat))],
+    ];
+    map.fitBounds(bounds, { padding: padding(50, 50), maxZoom: 17.5, duration: reducedMotion() ? 0 : 600 });
+  }, [ready, results, focus]);
+
+  return (
+    <div className="game-map relative h-full w-full bg-[#dfe7ee]" data-placing={canPlace}>
+      {/* MapLibre sets position: relative on its container, so the wrapper carries the size. */}
+      <div ref={container} className="h-full w-full" />
+      {!ready && !failed && (
+        <p className="absolute inset-0 grid place-items-center text-sm font-semibold text-[#3b566f]">Loading the map…</p>
+      )}
+      {failed && (
+        <p className="absolute inset-0 grid place-items-center p-4 text-center text-sm font-semibold text-[#8a1c13]">
+          The map could not load. Check your connection and reload the page.
+        </p>
+      )}
+    </div>
+  );
+}

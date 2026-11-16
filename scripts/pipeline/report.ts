@@ -5,8 +5,9 @@
  *
  * Part 1: counts by source and status, and how photos are spread across campus.
  * Part 2: anti-cheat checks against the real Supabase project, using only what a
- *         player's browser has (the public key): the images table must be
- *         unreadable, the bucket unlistable, and stored files free of metadata.
+ *         player's browser has (the public key): every table must be unreadable,
+ *         the bucket unlistable, photos unfetchable by filename, and stored files
+ *         free of metadata.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -103,21 +104,50 @@ async function securityChecks(): Promise<boolean> {
   check(!!upload.error, "public key cannot upload to the photo bucket", upload.error?.message ?? "upload was accepted!");
   if (!upload.error) await admin.storage.from(STORAGE_BUCKET).remove(["probe.webp"]);
 
-  // 3. Stored files: fetch a sample by public URL the way a player would, and look for metadata.
+  // 3. Stored files. The bucket is private: with only the public key, a photo
+  //    must not be fetchable even by someone who knows its exact filename.
+  //    The server reads the same files with the secret key and checks them for metadata.
   const sample = await admin.from("images").select("id, storage_path, source_id").eq("hidden", false).limit(1000);
   const rows = (sample.data ?? []).sort(() => Math.random() - 0.5).slice(0, 12);
   let clean = 0;
   let leakyName = 0;
+  let fetchable = 0;
   for (const row of rows) {
-    const res = await fetch(`${url}/storage/v1/object/public/${STORAGE_BUCKET}/${row.storage_path}`);
-    const bytes = Buffer.from(await res.arrayBuffer());
+    const direct = await fetch(`${url}/storage/v1/object/public/${STORAGE_BUCKET}/${row.storage_path}`);
+    const withKey = await anon.storage.from(STORAGE_BUCKET).download(row.storage_path);
+    const signed = await anon.storage.from(STORAGE_BUCKET).createSignedUrl(row.storage_path, 60);
+    if (direct.ok || !withKey.error || !signed.error) fetchable++;
+
+    const file = await admin.storage.from(STORAGE_BUCKET).download(row.storage_path);
+    if (file.error || !file.data) continue;
+    const bytes = Buffer.from(await file.data.arrayBuffer());
     const meta = await sharp(bytes).metadata();
     const exif = await exifr.parse(bytes, true).catch(() => null);
-    if (res.ok && !meta.exif && !meta.xmp && !meta.iptc && !meta.icc && !exif) clean++;
+    if (!meta.exif && !meta.xmp && !meta.iptc && !meta.icc && !exif) clean++;
     if (row.storage_path.includes(row.source_id) || row.storage_path.includes(row.id)) leakyName++;
   }
+  check(rows.length > 0 && fetchable === 0, "public key cannot fetch a photo by its storage filename", `${rows.length - fetchable}/${rows.length} sampled files refused`);
   check(rows.length > 0 && clean === rows.length, "stored photos carry no metadata", `${clean}/${rows.length} sampled files clean`);
   check(leakyName === 0, "filenames reveal neither our ID nor the source ID", `${rows.length} sampled`);
+
+  // 4. Game tables and functions (Phase 2) are server only as well.
+  let readable = 0;
+  for (const table of ["settings", "profiles", "games", "game_players", "game_rounds", "guesses", "image_reports"]) {
+    const res = await anon.from(table).select("*").limit(1);
+    if (!res.error && (res.data ?? []).length > 0) readable++;
+  }
+  check(readable === 0, "public key cannot read any game table", "7 tables tried");
+  const fake = "00000000-0000-4000-8000-000000000000";
+  const calls = await Promise.all([
+    anon.rpc("start_game", { p_user: fake }),
+    anon.rpc("game_state", { p_game: fake, p_user: fake }),
+    anon.rpc("round_photo_path", { p_game: fake, p_user: fake, p_round: 1 }),
+    anon.rpc("lock_guess", { p_game: fake, p_user: fake, p_round: 1 }),
+  ]);
+  check(calls.every((c) => c.error), "public key cannot call any game function", `${calls.filter((c) => c.error).length}/${calls.length} calls refused`);
+
+  const reported = await admin.from("images").select("id", { count: "exact", head: true }).gt("report_count", 0);
+  if (reported.count) console.log(`  ${reported.count} photo(s) have player reports. See them with: npm run photos:reports`);
   return ok;
 }
 
