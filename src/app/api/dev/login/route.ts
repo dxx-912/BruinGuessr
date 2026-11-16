@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { safeNextPath } from "@/lib/server/auth";
+import { usernameOf } from "@/lib/server/profile";
 import { adminClient, sessionClient } from "@/lib/server/supabase";
 
 /**
@@ -27,8 +28,13 @@ export async function GET(request: Request) {
   if (link.error || !token) return new Response(`Could not create a test session: ${link.error?.message}`, { status: 500 });
 
   const supabase = await sessionClient();
-  const { error } = await supabase.auth.verifyOtp({ token_hash: token, type: "magiclink" });
+  const { data, error } = await supabase.auth.verifyOtp({ token_hash: token, type: "magiclink" });
   if (error) return new Response(`Could not sign in the test account: ${error.message}`, { status: 500 });
 
-  return NextResponse.redirect(`${url.origin}${safeNextPath(url.searchParams.get("next"))}`);
+  // Like a real first sign in: no username yet means the username page first.
+  const next = safeNextPath(url.searchParams.get("next"));
+  if (data.user && !(await usernameOf(data.user.id))) {
+    return NextResponse.redirect(`${url.origin}/welcome?next=${encodeURIComponent(next)}`);
+  }
+  return NextResponse.redirect(`${url.origin}${next}`);
 }

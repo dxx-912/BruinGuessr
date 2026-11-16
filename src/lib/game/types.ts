@@ -74,6 +74,7 @@ export type GameError =
   | "locked"
   | "daily_cap"
   | "bad_reason"
+  | "no_username"
   | "server_error";
 
 /** What the game screen should be showing, worked out from the state alone. */

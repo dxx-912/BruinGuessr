@@ -19,6 +19,7 @@ export default function PlayButton() {
     } catch (err) {
       setStarting(false);
       if (err instanceof ApiError && err.code === "unauthorized") router.replace("/?signin=required");
+      else if (err instanceof ApiError && err.code === "no_username") router.push("/welcome");
       else setProblem(err instanceof ApiError && err.code === "network" ? "No connection. Check your internet and try again." : "The game could not start. Try again in a moment.");
     }
   };

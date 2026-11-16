@@ -19,6 +19,7 @@ const STATUS: Record<GameError, number> = {
   too_late: 409,
   locked: 409,
   daily_cap: 429,
+  no_username: 403,
   server_error: 500,
 };
 

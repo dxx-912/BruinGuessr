@@ -1,4 +1,5 @@
-import { currentUser } from "@/lib/server/auth";
+import Link from "next/link";
+import { currentPlayer } from "@/lib/server/profile";
 import PlayButton from "./PlayButton";
 
 /** The Google mark, as Google's sign-in button guidelines draw it. */
@@ -29,7 +30,17 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 
 /** The main button on the home page: "Play solo" when signed in, Google sign in when not. */
 export async function PlayArea({ searchParams }: { searchParams: Search }) {
-  const [user, query] = await Promise.all([currentUser(), searchParams]);
+  const [user, query] = await Promise.all([currentPlayer(), searchParams]);
+  if (user && !user.username) {
+    return (
+      <div>
+        <Link href="/welcome" className="btn btn-gold w-full !px-8 !py-4 !text-3xl sm:w-auto">
+          Pick your username
+        </Link>
+        <p className="mt-3 text-sm font-semibold text-sky">One quick step before your first game.</p>
+      </div>
+    );
+  }
   if (user) return <PlayButton />;
 
   const next = typeof query.next === "string" ? query.next : "/";
@@ -51,9 +62,9 @@ export async function PlayArea({ searchParams }: { searchParams: Search }) {
 
 /** Top right of the home page: who is signed in, and the way out. */
 export async function AccountChip() {
-  const user = await currentUser();
+  const user = await currentPlayer();
   if (!user) return null;
-  const firstName = user.name?.split(/\s+/)[0] ?? "Player";
+  const firstName = user.username ?? user.name?.split(/\s+/)[0] ?? "Player";
   return (
     <div className="panel flex items-center gap-2 !rounded-full py-1 pl-1 pr-1.5">
       {user.avatarUrl ? (
@@ -62,9 +73,9 @@ export async function AccountChip() {
       ) : (
         <span className="display grid h-8 w-8 place-items-center rounded-full bg-ucla-blue text-lg">{firstName[0]}</span>
       )}
-      <span className="max-w-32 truncate text-sm font-semibold">{firstName}</span>
+      <span className="max-w-20 truncate text-sm font-semibold sm:max-w-32">{firstName}</span>
       <form method="post" action="/auth/sign-out">
-        <button type="submit" className="cursor-pointer rounded-full px-2.5 py-1 text-sm font-semibold text-sky hover:bg-navy-line hover:text-paper">
+        <button type="submit" className="cursor-pointer whitespace-nowrap rounded-full px-2.5 py-1 text-sm font-semibold text-sky hover:bg-navy-line hover:text-paper">
           Sign out
         </button>
       </form>

@@ -21,11 +21,19 @@ const serverUp = await fetch(`${BASE}/api/dev/login?as=0`, { redirect: "manual" 
 if (!serverUp) console.warn(`\n  SKIPPED: no development server at ${BASE}. Start "npm run dev" to include the HTTP checks.\n`);
 
 /** Signs in as a development test player and returns the Cookie header to send. */
-async function signIn(n: number): Promise<string> {
+async function signIn(n: number, { pickUsername = true } = {}): Promise<string> {
   const res = await fetch(`${BASE}/api/dev/login?as=${n}`, { redirect: "manual" });
   expect(res.status).toBe(307);
-  return res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const cookie = res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  // A first sign in goes to the username page; pick one so games can start.
+  if (pickUsername && res.headers.get("location")?.includes("/welcome")) {
+    const picked = await call(cookie, "POST", "/api/username", { username: `dev_${n}_${Date.now().toString(36)}` });
+    expect(picked.status).toBe(200);
+  }
+  return cookie;
 }
+
+const DEV_TEST_ACCOUNTS = /^dev-player-[789]@bruinguessr\.test$/;
 
 const call = (cookie: string | null, method: string, path: string, body?: unknown, origin = BASE) =>
   fetch(`${BASE}${path}`, {
@@ -48,7 +56,7 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
   afterAll(async () => {
     // Undo the report filed below, so no real photo keeps a test report.
     const users = await admin.auth.admin.listUsers({ perPage: 200 });
-    const ids = users.data.users.filter((u) => /^dev-player-[89]@bruinguessr\.test$/.test(u.email ?? "")).map((u) => u.id);
+    const ids = users.data.users.filter((u) => DEV_TEST_ACCOUNTS.test(u.email ?? "")).map((u) => u.id);
     if (!ids.length) return;
     const reports = await admin.from("image_reports").select("image_id").in("user_id", ids);
     await admin.from("image_reports").delete().in("user_id", ids);
@@ -56,7 +64,8 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
       const left = await admin.from("image_reports").select("user_id", { count: "exact", head: true }).eq("image_id", image_id);
       await admin.from("images").update({ report_count: left.count ?? 0 }).eq("id", image_id);
     }
-    await admin.from("games").delete().in("created_by", ids);
+    // Deleting the accounts removes their usernames, games and scores too.
+    for (const id of ids) await admin.auth.admin.deleteUser(id);
   });
 
   it("refuses anyone who is not signed in", async () => {
@@ -135,5 +144,41 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
     expect(state.results[0].reported).toBe(true);
     // Bob never played this round, so he cannot report through it.
     expect((await call(bob, "POST", `/api/games/${game}/rounds/1/report`, { reason: "unclear" })).status).toBe(404);
+  });
+
+  it("asks a new player for a username before the first game, and takes it once", async () => {
+    const carol = await signIn(7, { pickUsername: false });
+    expect((await call(carol, "POST", "/api/games")).status).toBe(403);
+    // The game page sends them to the username page.
+    expect(await (await call(carol, "GET", "/game/00000000-0000-4000-8000-000000000000")).text()).toContain("/welcome");
+
+    const check = async (name: string) => (await (await call(carol, "GET", `/api/username?name=${encodeURIComponent(name)}`)).json()) as { ok: boolean; problem?: string };
+    expect(await check("sh1thead")).toEqual({ ok: false, problem: "not_allowed" });
+    expect(await check("Admin_1")).toEqual({ ok: false, problem: "not_allowed" });
+    expect(await check("no spaces")).toEqual({ ok: false, problem: "bad_chars" });
+    expect((await call(null, "GET", "/api/username?name=anything")).status).toBe(401);
+
+    const name = `dev_7_${Date.now().toString(36)}`;
+    expect(await check(name)).toEqual({ ok: true });
+    expect((await call(carol, "POST", "/api/username", { username: "f_u_c_k" })).status).toBe(400);
+    expect((await call(carol, "POST", "/api/username", { username: name }, "https://evil.example")).status).toBe(400);
+    expect((await call(carol, "POST", "/api/username", { username: name })).status).toBe(200);
+    expect((await call(carol, "POST", "/api/username", { username: `${name}x` })).status).toBe(409);
+    expect((await call(alice, "GET", `/api/username?name=${name.toUpperCase()}`)).status).toBe(200);
+    expect(await (await call(alice, "GET", `/api/username?name=${name.toUpperCase()}`)).json()).toEqual({ ok: false, problem: "taken" });
+
+    expect((await call(carol, "POST", "/api/games")).status).toBe(200);
+  });
+
+  it("shows the leaderboard to anyone, without account IDs", async () => {
+    const page = await call(null, "GET", "/leaderboard");
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toContain("Leader");
+    const users = await admin.auth.admin.listUsers({ perPage: 200 });
+    for (const u of users.data.users) expect(html).not.toContain(u.id);
+    const standing = await call(alice, "GET", "/api/me/standing");
+    expect(standing.status).toBe(200);
+    expect((await call(null, "GET", "/api/me/standing")).status).toBe(401);
   });
 });

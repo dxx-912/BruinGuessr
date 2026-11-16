@@ -32,19 +32,20 @@ Read SPEC.md first, then this file.
 1. **35 newly downloaded Wikimedia photos** are "waiting" on `/dev/photos` (Source: Wikimedia, Status: Waiting). He asked to review these himself. Nothing from them is live.
 2. **His own photos** of the Hill and the northwest: see "Adding your own photos" in README.md.
 
-**Phase 2 (single player): built and checked 2026-11-15. Waiting for Daniel to test and approve. Phase 3 has not started.**
+**Phase 2 (single player): done 2026-11-15. Daniel moved on to Phase 3 on 2026-11-16.**
 
 - Google sign in, the full five-round game, the per-round photo address, photo reports and the photographer credit on the reveal are all in. How it works is in README.md ("How the game works"); the look is in DESIGN.md.
 - Database: migrations `20261115000200_single_player.sql` and `20261115000300_score_far_guess.sql` are applied. The `photos` bucket is now **private**.
 - Checks run at the end of the phase: `npm test` (80 passed), `npm run test:live` (19 passed), type-check, lint, production build, and a full game played in headless Chrome at desktop and phone size (a normal guess, a bullseye, time running out with a pin, time running out with no pin, summary, reload on the summary). No console errors.
 - Not tested by me: the real Google sign in. It needs a person at a browser. Everything after sign in was tested through the development-only test login.
 
-### One open problem: 30 old filenames are still reachable (needs Daniel's go-ahead)
+### One open problem: 30 old filenames are still reachable (Daniel to run `npm run photos:rotate`)
 
 - `npm run photos:report` has **one failing check**: "public key cannot fetch a photo by its storage filename".
 - Cause: in Phase 1 the bucket was public and the report script fetched sample photos by public URL. Supabase's CDN cached those 30 files for a year and still serves them, even though the bucket is private now. Purging the CDN is not available on this plan (tried: "feature not enabled").
 - Risk today: low. A filename is 32 random hex characters and has never been sent to a browser, and a photo without its location is not an answer.
-- Fix, written but **not run**: `npm run photos:rotate` renames every stored photo to a new random filename (nothing is deleted; rows and `.cache/pipeline/published.json` are updated; a backup of that file is kept). After it, no current filename has ever been public. Run `npm run photos:report` afterwards; all checks should pass.
+- Still failing on 2026-11-16 (11 of 12 sampled refused). Daniel's first try ran from his home folder, not the project folder, and Claude's own attempts were blocked by the permission check, so it has not run yet.
+- Fix, written but **not run**: from the project folder, `npm run photos:rotate` renames every stored photo to a new random filename (nothing is deleted; rows and `.cache/pipeline/published.json` are updated; a backup of that file is kept). After it, no current filename has ever been public. Run `npm run photos:report` afterwards; all checks should pass.
 
 ### How to test Phase 2
 
@@ -65,11 +66,41 @@ Read SPEC.md first, then this file.
 - A reload during the reveal or summary shows the result without the photo, because the photo's address has stopped working by design. The copy in memory is what the reveal and summary use.
 - All of these are columns in the one-row `settings` table, changeable without a code change.
 
-### Notes for Phase 3 and 4
+**Phase 3 (accounts and leaderboard): built and checked 2026-11-16. Waiting for Daniel to test and approve. Phase 4 has not started.**
+
+- Usernames: picked once, on the first sign in (`/welcome`). 3 to 16 letters, numbers or underscores; unique ignoring case; shown as typed. The Google callback, the dev login, the home page, the game page and `POST /api/games` all send a player without a username to `/welcome` first (the API answers 403 `no_username`).
+- Profanity filter: the `obscenity` package (catches "sh1t", "fuuuck", leaves "assassin" and "Scunthorpe" alone), also checked with underscores removed, plus a short reserved list (admin, moderator, BruinGuessr, UCLA, Joe Bruin…). Server only; the word list is not in the browser bundle (checked).
+- Leaderboard: `/leaderboard`, 50 a page, open to anyone. One row per account: its best completed game. Ties go to the game that finished first. Abandoned and unfinished games never count; accounts without a username are left out. Signed-in players see "You're 4th of 120 with 21,345" above the table, and their own row pinned under the table when it is on another page.
+- Versus without a schema change: the leaderboard is a view over `game_players` joined to `games` (any mode, `status = 'completed'`). A versus game already writes one `game_players` row per player with that player's own five-round total. A live test inserts a completed versus game and checks it ranks.
+- Game summary: "New personal best" badge and "4th of 120 on the leaderboard" (a link to that page of the board), from `GET /api/me/standing`.
+- Home: a "Leaderboard" button in the header (a trophy icon on phones); the account chip shows the username.
+- Admin: `npm run usernames` lists usernames; `npm run usernames -- reset <name>` clears one so that player picks again (games and scores kept).
+- Database: migration `20261116000100_accounts_leaderboard.sql` is applied (`profiles.username`, `set_username`, `username_available`, the `leaderboard_entries` view, `leaderboard`). All server only; a live test checks the public key can't read or call any of it, and that no account ID is ever sent.
+- Checks run at the end of the phase: `npm test` (90 passed), `npm run test:live` (33 passed, including the HTTP checks with `npm run dev` running), type-check, lint, production build (dev routes 404, no secret and no profanity list in the browser bundle), and in headless Chrome at desktop and phone size: picking a username (bad name refused, short name refused, free name accepted), a full five-round game (normal guess, bullseye, time out with a pin, time out without, summary, reload), the summary's standing line, and the leaderboard. No console errors. Phone layout fixes made along the way: header overflow on the home page, and the summary buttons.
+- All test accounts were deleted afterwards; the leaderboard is empty. Two games belonging to a real account (probably Daniel's, from testing Phase 2) were left alone; that account will be asked for a username on its next visit.
+
+### How to test Phase 3
+
+1. `npm run dev`, open http://localhost:3000 and sign in with Google. You should land on "Pick your name", with a suggestion made from your Google name.
+2. Try a rude name, a name with a space, a two-letter name, and "admin": each is refused with a reason. Pick a real one.
+3. Play a game. The summary should say "New personal best" and your rank; click the rank to go to the leaderboard.
+4. Open http://localhost:3000/api/dev/login?as=1 in a private window, pick a second name, and play. Both should be on `/leaderboard`, best score first.
+5. Try taking your own name again with the test account, in different capitals: "Someone already has that name."
+6. `npm run usernames` lists the names. Delete the test accounts before real players arrive (or ask me to).
+
+### Decisions made in Phase 3 (say so if you want any changed)
+
+- Usernames can't be changed by the player (the spec says "pick"; no profile page in v1). `npm run usernames -- reset` is the escape hatch.
+- Reserved names include Joe Bruin and Josie Bruin, since they are the mascots' names.
+- The leaderboard is public, including to visitors who are not signed in. It shows username, best score and the date it was reached; versus records are marked "versus".
+- "Ties go to whoever reached the score first" uses the time the game finished. In a versus game every player finishes at the same moment, so two players tied in the same versus game are ordered arbitrarily but consistently.
+- A completed game with 0 points still counts (it is a completed game).
+
+### Notes for Phase 4
 
 - Tables already shaped for versus: `games.mode`, `game_players` (one row per player with `total_score`), `guesses` keyed by player. Scoring a round scores every player in the game and gives 0 to anyone without a pin. Not built yet: `rooms`, `room_members`.
-- The leaderboard can read `game_players.total_score` joined to `games` where `status = 'completed'`, with `games.completed_at` for ties.
-- `profiles` has only `id` and `created_at`; Phase 3 adds the username. A trigger creates the profile when an account is created.
+- The leaderboard already counts versus games: just finish them with `status = 'completed'` and `completed_at`, with each player's `game_players.total_score` filled in. Players who miss rounds get 0 for them, as `_resolve_round` already does.
+- Versus room screens should show usernames (`profiles.username`), never Google names.
 - The development test login creates accounts named `dev-player-N@bruinguessr.test`. Delete them before the leaderboard goes live (all were deleted at the end of Phase 2).
 - Deploy (Phase 5): Vercel needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, and Supabase needs the production URL in Site URL and redirect URLs. Until then the deployed site cannot sign anyone in.
 
@@ -134,4 +165,4 @@ Read SPEC.md first, then this file.
 1. ~~Log the Supabase CLI into the account that owns project `waezvtzepdxiisefivmu`.~~ Done 2026-11-15 (project "UCLA-GeoGuessr", us-east-1).
 2. ~~Turn off the Email provider.~~ Already off when Phase 2 started (checked 2026-11-15).
 3. ~~Add a Wikimedia contact to `.env.local`.~~ Done 2026-11-15.
-4. Decide on `npm run photos:rotate` (see "One open problem" under Phase 2).
+4. Run `npm run photos:rotate`, then `npm run photos:report`, **from the project folder** (`cd ~/Desktop/"UCLA GeoGuessr"` first). See "One open problem" under Phase 2.

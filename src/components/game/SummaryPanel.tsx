@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { ordinal, pageOfRank, type Leaderboard } from "@/lib/leaderboard";
 import { formatDistance, formatPoints, gameVerdict } from "@/lib/game/format";
 import { maxTotal, type GameState } from "@/lib/game/types";
 import CountUp from "./CountUp";
@@ -15,6 +17,39 @@ type Props = {
   busy: boolean;
 };
 
+type Standing = { you: Leaderboard["you"]; total: number };
+
+/** Where this game leaves the player on the leaderboard. Quietly absent if it can't be fetched. */
+function StandingLine({ gameId }: { gameId: string }) {
+  const [standing, setStanding] = useState<Standing | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/me/standing", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<Standing>) : null))
+      .then((data) => live && data && setStanding(data))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [gameId]);
+
+  const you = standing?.you;
+  if (!you) return <div className="mt-3 h-7" />;
+  const best = you.gameId === gameId;
+  return (
+    <p className="mt-3 flex min-h-7 animate-rise flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
+      {best ? (
+        <span className="display rounded-full bg-ucla-gold px-3 py-0.5 text-lg text-night">New personal best</span>
+      ) : (
+        <span className="text-sky">Your best: {formatPoints(you.score)}.</span>
+      )}
+      <Link href={`/leaderboard?page=${pageOfRank(you.rank)}`} className="text-paper underline decoration-sky decoration-2 underline-offset-4 hover:decoration-ucla-gold">
+        {ordinal(you.rank)} of {formatPoints(standing.total)} on the leaderboard
+      </Link>
+    </p>
+  );
+}
+
 /** After round five: every round side by side, the total, and "Play again". */
 export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhoto, onPlayAgain, busy }: Props) {
   const max = maxTotal(state);
@@ -26,6 +61,7 @@ export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhot
           <CountUp value={state.totalScore} durationMs={1400} />
         </h1>
         <p className="mt-1 font-semibold text-sky">out of {formatPoints(max)} points</p>
+        {state.status === "completed" && <StandingLine gameId={state.id} />}
       </div>
 
       <ol className="min-h-0 flex-1 overflow-y-auto px-3 py-2" onMouseLeave={() => onFocus(null)}>

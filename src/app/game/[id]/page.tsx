@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { currentUser } from "@/lib/server/auth";
+import { currentPlayer } from "@/lib/server/profile";
 import GameClient from "./GameClient";
 
 export const metadata: Metadata = { title: "Game", robots: { index: false } };
@@ -17,6 +17,8 @@ export default function GamePage({ params }: PageProps<"/game/[id]">) {
 async function Game({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   // Players must be signed in. The game API checks this again on every request.
-  if (!(await currentUser())) redirect(`/?signin=required&next=${encodeURIComponent(`/game/${id}`)}`);
+  const player = await currentPlayer();
+  if (!player) redirect(`/?signin=required&next=${encodeURIComponent(`/game/${id}`)}`);
+  if (!player.username) redirect(`/welcome?next=${encodeURIComponent(`/game/${id}`)}`);
   return <GameClient key={id} gameId={id} />;
 }

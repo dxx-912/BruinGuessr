@@ -19,26 +19,28 @@ npm run lint
 
 ## How the game works
 
-Sign in is Google only (Supabase Auth). A signed-in player presses "Play solo" and plays five rounds.
+Sign in is Google only (Supabase Auth). On the first sign in a player picks a username (`/welcome`); then they press "Play solo" and play five rounds.
 
 - **The server runs the game.** Every rule, deadline and score is a Postgres function in `supabase/migrations/` that uses the database clock. The browser only calls `/api/games/...` routes; it never talks to the database, and every table refuses the public key.
 - **Each round's photo has a per-round address**: `/api/games/<game>/rounds/<n>/photo`. It works only for the player in that game and only while that round is open. Once the round is scored it answers 404 for good. The photo's real filename in Storage never reaches the browser, and the Storage bucket is private.
 - **The pin is saved every time it moves**, so when the clock hits zero the guess is already on the server. Guesses are accepted up to 1.5 seconds after the deadline to allow for network delay.
 - **A round opens 2.5 seconds before its clock starts.** The photo loads behind the "Round N" card, so the player gets the full 30 seconds.
 - **Reporting.** The reveal screen has "Report photo". A photo reported by three different accounts leaves rotation (it is hidden, never deleted). Each account can file 10 reports in 24 hours. Review them with `npm run photos:reports`.
+- **Usernames** are 3 to 16 letters, numbers or underscores, unique ignoring case, and picked once. A basic profanity filter (the `obscenity` package, plus a short list of official-looking names) runs on the server. If one slips through, `npm run usernames -- reset <name>` clears it and the player picks again on their next visit.
+- **Leaderboard** (`/leaderboard`, open to everyone): one row per account, its best completed game, ties to whoever got there first. It is computed from `game_players` joined to `games`, so a completed versus game counts the same way as a solo game. Signed-in players see their own rank above the table, and their row pinned under it when it is on another page.
 
 The visual direction is written up in `DESIGN.md`.
 
 ### Testing without Google
 
-In development only, `http://localhost:3000/api/dev/login?as=1` signs the browser in as a test account ("Dev Player 1"; `as` can be 1 to 9). It returns 404 on the deployed site.
+In development only, `http://localhost:3000/api/dev/login?as=1` signs the browser in as a test account ("Dev Player 1"; `as` can be 1 to 9). The first time, it goes to the username page like a real first sign in. It returns 404 on the deployed site. Test accounts end in `@bruinguessr.test`; delete them before real players arrive, or they stay on the leaderboard.
 
 ## Tests
 
 | Command | What it checks | Needs |
 |---|---|---|
-| `npm test` | Scoring, geometry, the photo pipeline, formatting | nothing |
-| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
+| `npm test` | Scoring, geometry, the photo pipeline, formatting, username rules and the profanity filter | nothing |
+| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, usernames, leaderboard ranking (including a versus game), and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
 | `npm run photos:report` | Photo pool and live anti-cheat checks | `.env.local` |
 
 The live tests create throwaway accounts and games and delete them when they finish.

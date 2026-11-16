@@ -17,11 +17,22 @@ export default function Home({ searchParams }: PageProps<"/">) {
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5">
         <span className="flex items-center gap-2">
           <PinMark className="h-8 w-auto" />
-          <Wordmark className="text-3xl" />
+          <span className="hidden sm:inline">
+            <Wordmark className="text-3xl" />
+          </span>
         </span>
-        <Suspense fallback={null}>
-          <AccountChip />
-        </Suspense>
+        <nav className="flex items-center gap-2">
+          <Link href="/leaderboard" aria-label="Leaderboard" className="btn btn-quiet !rounded-full !px-2.5 !py-1.5 !text-lg sm:!px-4">
+            <svg viewBox="0 0 24 24" className="h-6 w-6 sm:hidden" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">
+              <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+              <path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 20h8" strokeLinecap="round" />
+            </svg>
+            <span className="hidden sm:inline">Leaderboard</span>
+          </Link>
+          <Suspense fallback={null}>
+            <AccountChip />
+          </Suspense>
+        </nav>
       </header>
 
       <section className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-8 px-5 py-10 lg:grid-cols-[1.05fr_1fr] lg:py-14">
