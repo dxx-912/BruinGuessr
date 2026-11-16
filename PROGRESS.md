@@ -118,7 +118,9 @@ The site is live at https://ucla-geoguessr.vercel.app with Google sign in workin
   - the next round opening by itself after 20 seconds; the clock running out with a pin on the map (counted) and with none (0);
   - final standings, rematch with three of the five, and the two left behind being told the rematch started without them.
 - Also checked in the browser: a signed-out visitor following a room link is asked to sign in and comes back to the room; a solo game still plays through; the lobby when a guest or the host leaves; phone layouts for the lobby, round, reveal and standings.
-- On the live site after the push: see "Live site" below.
+- On the live site after the push (commit `ea58842`, 2026-11-16): the same five-player run passed against https://ucla-geoguessr.vercel.app, every check, including the room link reading `ucla-geoguessr.vercel.app/versus/<CODE>` and the reveal reaching all five screens about 1 second after the last guess. Signed out, the room API answers 401, the test login answers 404, and a room link asks for sign in and returns to the room.
+- **Not tested by me: versus between real Google accounts.** The live run used the five test accounts, signed in on the dev server with their session carried over to the live address. Everything after sign in is the same code path, but two people with two Google accounts have not played each other yet. That is step 1 to 5 of "How to test" below.
+- Afterwards all test accounts and their rooms and games were deleted. The leaderboard holds only real accounts. A room Daniel created on the live site during testing (`HLVKM`) was left alone.
 
 ### How to test Phase 4
 
