@@ -14,10 +14,10 @@ export { COPY } from "./copy";
 export type Grade = "blue" | "gold" | "night";
 
 /** The relit campus scene (public/art/hero/royce-<grade>.svg, `npm run art:build`). Decorative. */
-export function Scene({ grade, className = "" }: { grade: Grade; className?: string }) {
+export function Scene({ grade, className = "", style }: { grade: Grade; className?: string; style?: React.CSSProperties }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- a static SVG; next/image adds nothing for vector art
-    <img src={`/art/hero/royce-${grade}.svg`} alt="" aria-hidden draggable={false} className={`pointer-events-none block select-none ${className}`} />
+    <img src={`/art/hero/royce-${grade}.svg`} alt="" aria-hidden draggable={false} style={style} className={`pointer-events-none block select-none ${className}`} />
   );
 }
 

@@ -14,6 +14,11 @@ const VARIANTS = [
     idea: "Royce at golden hour seen through a round-headed portal with a stone surround. The art is contained, so nothing collides. Solid gold and blue tiles, glazed like enamel pins.",
   },
   {
+    id: "b2",
+    name: "B2 · Golden hour, open",
+    idea: "B without the arch: the same golden-hour Royce, enamel tiles and numbered steps, but the scene is the background, as in C. It bleeds off the right and dissolves behind the text; on a phone it sits between the text and the tiles.",
+  },
+  {
     id: "c",
     name: "C · Night game",
     idea: "Floodlit night with two beams. The scene bleeds off the right and dissolves into the dark behind a left column: headline, then one dock holding both modes as rows.",
@@ -66,7 +71,7 @@ export default function HeroCompare() {
     <main className="min-h-dvh bg-[#040f1d] px-4 py-5 text-paper sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="heading text-3xl">Play page hero: three variants</h1>
+          <h1 className="heading text-3xl">Play page hero: variants</h1>
           <p className="mt-1 max-w-2xl text-sm text-sky">
             Each frame is the real page at {DEVICES[device].label.toLowerCase()} px, scaled to fit. Scroll inside a frame, or open it on its own. The live Play page is unchanged.
           </p>
@@ -81,7 +86,7 @@ export default function HeroCompare() {
           </div>
           <div className="flex rounded-full border border-white/10 p-1" role="group" aria-label="Show">
             <button type="button" className={pill(only === null)} aria-pressed={only === null} onClick={() => setOnly(null)}>
-              All three
+              All
             </button>
             {VARIANTS.map((v) => (
               <button key={v.id} type="button" className={pill(only === v.id)} aria-pressed={only === v.id} onClick={() => setOnly(v.id)}>
@@ -93,7 +98,7 @@ export default function HeroCompare() {
       </header>
 
       <div
-        className={`mt-6 grid gap-5 ${only ? "" : device === "phone" ? "md:grid-cols-3" : "xl:grid-cols-3"}`}
+        className={`mt-6 grid gap-5 ${only ? "" : device === "phone" ? "md:grid-cols-2 xl:grid-cols-4" : "xl:grid-cols-2"}`}
         style={only && device === "phone" ? { maxWidth: DEVICES.phone.width, marginInline: "auto" } : undefined}
       >
         {shown.map((v) => (
