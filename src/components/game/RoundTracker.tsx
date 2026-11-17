@@ -1,5 +1,6 @@
 import { formatPoints } from "@/lib/game/format";
 import type { RoundResult } from "@/lib/game/types";
+import { scoreTone, TONE_FILL, TONE_ON } from "@/lib/game/tone";
 
 type Props = { roundCount: number; currentRound: number; results: RoundResult[]; totalScore: number };
 
@@ -12,10 +13,10 @@ export default function RoundTracker({ roundCount, currentRound, results, totalS
           const number = i + 1;
           const result = results.find((r) => r.round === number);
           const tone = result
-            ? "bg-ucla-gold text-night"
+            ? `${TONE_FILL[scoreTone(result.score, result.guess !== null)]} ${TONE_ON}`
             : number === currentRound
               ? "bg-ucla-blue text-paper outline outline-2 outline-offset-1 outline-paper"
-              : "bg-night text-sky/60";
+              : "bg-night text-out";
           return (
             <li key={number} title={result ? `Round ${number}: ${formatPoints(result.score)} points` : `Round ${number}`} className={`display grid h-8 w-8 place-items-center rounded-lg text-xl ${tone}`}>
               {number}

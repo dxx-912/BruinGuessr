@@ -705,9 +705,15 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
 
       {/* "Round 3" card while the photo loads and before the clock starts */}
       {(phase === "loading" || phase === "ready" || (guessing && stage === "intro")) && (
-        <div className="absolute inset-0 z-40 grid place-items-center bg-night">
+        <div className="absolute inset-0 z-40 grid place-items-center overflow-hidden bg-night">
           {state && state.currentRound > 0 ? (
-            <div key={state.currentRound} className="animate-pop text-center">
+            <div key={state.currentRound} className="relative animate-pop text-center">
+              {/* A slanted band in the campus scene's dusk colours, behind the number. */}
+              <div aria-hidden className="absolute left-1/2 top-[2.1rem] -z-10 h-[9.4rem] w-[200vw] -translate-x-1/2 -skew-y-3">
+                <div className="h-1.5 bg-[#E58FA6]" />
+                <div className="h-[calc(100%-0.75rem)] bg-[linear-gradient(#123660_0_33%,#1B4C82_33%_66%,#123660_66%)]" />
+                <div className="h-1.5 bg-brick-light" />
+              </div>
               <p className="display text-3xl text-sky">Round</p>
               <p className="display text-[11rem] leading-[0.8] text-ucla-gold">{state.currentRound}</p>
               {versus ? (

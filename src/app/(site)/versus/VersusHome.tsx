@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLayoutEffect, useState } from "react";
+import { CrownIcon, SwordsIcon } from "@/components/art/icons";
 import { api, ApiError } from "@/lib/game/api";
 import { normalizeRoomCode, ROOM_CODE_LENGTH } from "@/lib/versus/types";
 
@@ -52,16 +53,26 @@ export default function VersusHome({ rejoinCode }: { rejoinCode: string | null }
 
       <div className="grid gap-5 md:grid-cols-2">
         <section className="panel flex flex-col p-6">
-          <h2 className="display text-4xl">Host a game</h2>
-          <p className="mt-2 flex-1 text-sky">You get a room code and a link to share. Start once at least one friend is in.</p>
+          <h2 className="display flex items-center gap-3 text-4xl">
+            <span className="chip bg-ucla-gold !text-night">
+              <CrownIcon />
+            </span>
+            Host a game
+          </h2>
+          <p className="mt-3 flex-1 text-sky">You get a room code and a link to share. Start once at least one friend is in.</p>
           <button type="button" className="btn btn-gold mt-5 w-full !py-4 !text-3xl" onClick={host} disabled={hosting}>
             {hosting ? "Making your room…" : "Create a room"}
           </button>
         </section>
 
         <form className="panel flex flex-col p-6" onSubmit={join}>
-          <h2 className="display text-4xl">Join a game</h2>
-          <label htmlFor="room-code" className="mt-2 flex-1 text-sky">
+          <h2 className="display flex items-center gap-3 text-4xl">
+            <span className="chip bg-ucla-blue">
+              <SwordsIcon />
+            </span>
+            Join a game
+          </h2>
+          <label htmlFor="room-code" className="mt-3 flex-1 text-sky">
             Got a code from a friend? Type its {ROOM_CODE_LENGTH} letters.
           </label>
           <div className="mt-5 flex items-start gap-3">

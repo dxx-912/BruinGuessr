@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { formatDistance, formatImperial, roundVerdict } from "@/lib/game/format";
 import { sound } from "@/lib/game/sound";
 import type { RoundResult } from "@/lib/game/types";
+import { scoreTone, TONE_FILL, TONE_ON, TONE_TEXT } from "@/lib/game/tone";
 import Confetti from "./Confetti";
 import CountUp from "./CountUp";
 import PhotoCredit from "./PhotoCredit";
@@ -30,6 +31,7 @@ const MAX = 5000;
 export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOpenPhoto, onNext, busy, panelRef, guest = false }: Props) {
   const bullseye = result.guess !== null && result.score >= MAX;
   const last = result.round >= roundCount;
+  const tone = scoreTone(result.score, result.guess !== null);
 
   useEffect(() => {
     const id = window.setTimeout(() => (bullseye ? sound.bullseye() : sound.tally(result.score)), 450);
@@ -59,17 +61,18 @@ export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOp
               <p className="text-sm font-semibold text-sky">
                 Round {result.round} of {roundCount} · {roundVerdict(result.score, result.guess !== null)}
               </p>
-              <p className="display mt-0.5 flex items-baseline gap-2 text-[2.6rem] text-ucla-gold sm:mt-1 sm:text-6xl">
+              <p className={`display mt-0.5 flex items-baseline gap-2 text-[2.6rem] sm:mt-1 sm:text-6xl ${TONE_TEXT[tone]}`}>
                 <CountUp value={result.score} delayMs={450} />
                 <span className="text-xl text-paper sm:text-2xl">points</span>
               </p>
               <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-night sm:mt-2 sm:h-3 [@media(max-height:500px)]:hidden" role="img" aria-label={`${result.score} of ${MAX} points`}>
-                <div className="h-full origin-left animate-fill rounded-full bg-ucla-gold" style={{ transform: `scaleX(${result.score / MAX})` }} />
+                <div className={`h-full origin-left animate-fill rounded-full ${TONE_FILL[tone]}`} style={{ transform: `scaleX(${result.score / MAX})` }} />
               </div>
               <p className="mt-1.5 font-semibold leading-tight sm:mt-2">
                 {result.guess && result.distanceM !== null ? (
                   <>
-                    {formatDistance(result.distanceM)} away <span className="font-medium text-sky">({formatImperial(result.distanceM)})</span>
+                    <span className={`mr-1.5 inline-block rounded-full px-2.5 py-0.5 ${TONE_FILL[tone]} ${TONE_ON}`}>{formatDistance(result.distanceM)} away</span>
+                    <span className="font-medium text-sky">({formatImperial(result.distanceM)})</span>
                   </>
                 ) : (
                   "Time ran out before you placed a pin."

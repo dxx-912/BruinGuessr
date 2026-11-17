@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
 import type { CreditGroup, License, PhotoSource } from "@/lib/credits";
 import { photoCredits } from "@/lib/server/credits";
 import { pageMetadata } from "@/lib/site";
@@ -43,7 +44,7 @@ function Group({ group }: { group: CreditGroup }) {
   const { title, note } = SOURCES[group.source];
   const count = group.photographers.length;
   return (
-    <section className="panel mt-5 overflow-hidden !rounded-[20px]">
+    <section className="panel mt-5 overflow-hidden">
       <div className="border-b-2 border-navy-line px-5 py-4">
         <h3 className="display flex items-baseline justify-between gap-3 text-3xl">
           {title}
@@ -111,6 +112,7 @@ async function Photographers() {
 export default function CreditsPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <CampusBackdrop />
         <h1 className="display text-[clamp(3rem,10vw,5.5rem)]">
           Cred<span className="text-ucla-gold">its</span>
         </h1>

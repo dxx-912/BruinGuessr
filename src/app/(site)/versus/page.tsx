@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
 import { currentPlayer } from "@/lib/server/profile";
 import { activeRoom } from "@/lib/server/rooms";
 import { pageMetadata } from "@/lib/site";
@@ -15,12 +16,13 @@ export const metadata = pageMetadata({
 export default function VersusPage() {
   return (
     <section className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+      <CampusBackdrop />
         <p className="font-semibold text-sky">Two to five players</p>
         <h1 className="display mt-1 text-[clamp(3.6rem,11vw,6.5rem)]">
           Play <span className="text-ucla-gold">versus</span>
         </h1>
         <p className="mt-4 max-w-xl text-xl text-sky">Everyone starts with full health and sees the same photo. Each round, the best pin is safe and everyone else loses the points they fell short by. Last one standing wins.</p>
-        <Suspense fallback={<div className="mt-8 h-64 animate-pulse rounded-[20px] bg-navy" />}>
+        <Suspense fallback={<div className="panel mt-8 h-64 animate-pulse" />}>
           <Gate />
         </Suspense>
     </section>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ordinal, pageOfRank, type Leaderboard } from "@/lib/leaderboard";
 import { formatDistance, formatPoints, gameVerdict } from "@/lib/game/format";
 import { maxTotal, type GameState } from "@/lib/game/types";
+import { scoreTone, TONE_TEXT } from "@/lib/game/tone";
 import { SeatBadge } from "@/components/versus/SeatBadge";
 import { standingRank, standings } from "@/lib/versus/health";
 import CountUp from "./CountUp";
@@ -97,7 +98,7 @@ function Standings({ versus }: { versus: NonNullable<GameState["versus"]> }) {
               {legacy ? (
                 <span className="display numeric text-3xl text-paper">{formatPoints(p.total)}</span>
               ) : p.eliminatedRound !== null && rank !== 1 ? (
-                <span className="whitespace-nowrap text-sm font-semibold text-sky">Out in round {p.eliminatedRound}</span>
+                <span className="whitespace-nowrap text-sm font-semibold text-out">Out in round {p.eliminatedRound}</span>
               ) : (
                 <span className="display numeric whitespace-nowrap text-2xl text-health">
                   {formatPoints(p.health ?? 0)} <span className="text-sm text-sky">health</span>
@@ -192,7 +193,7 @@ export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhot
                     </p>
                   </button>
                   <div className="text-right">
-                    <p className={`display numeric text-3xl leading-none ${r.score >= 5000 ? "text-ucla-gold" : "text-paper"}`}>{formatPoints(r.score)}</p>
+                    <p className={`display numeric text-3xl leading-none ${TONE_TEXT[scoreTone(r.score, r.guess !== null)]}`}>{formatPoints(r.score)}</p>
                     {damage !== null && <p className={`numeric text-xs font-semibold ${damage ? "text-alarm" : "text-sky"}`}>{damage ? `−${formatPoints(damage)} health` : "no damage"}</p>}
                   </div>
                 </div>

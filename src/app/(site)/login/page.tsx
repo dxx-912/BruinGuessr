@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
 import SignInForm from "@/components/SignInForm";
 import { safeNextPath } from "@/lib/server/auth";
 import { currentPlayer } from "@/lib/server/profile";
@@ -21,6 +22,7 @@ export const metadata = pageMetadata({
 export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <section className="mx-auto grid w-full max-w-lg flex-1 content-center px-4 py-10 sm:px-6">
+      <CampusBackdrop />
       <Suspense fallback={<div className="h-80 animate-pulse rounded-[20px] bg-navy" />}>
         <Login searchParams={searchParams} />
       </Suspense>

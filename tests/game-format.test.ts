@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatClock, formatDistance, formatImperial, formatPoints, gameVerdict, roundVerdict } from "../src/lib/game/format";
+import { scoreTone, TONE_FILL, TONE_TEXT } from "../src/lib/game/tone";
 import { maxTotal, phaseOf, type GameState } from "../src/lib/game/types";
 
 describe("formatting for the game screens", () => {
@@ -65,5 +66,25 @@ describe("working out which screen a game is on", () => {
 
   it("knows the highest possible total", () => {
     expect(maxTotal(base)).toBe(25_000);
+  });
+});
+
+describe("scoreTone", () => {
+  it("colours a round by how good it was", () => {
+    expect(scoreTone(0, false)).toBe("none");
+    expect(scoreTone(5000, true)).toBe("bullseye");
+    expect(scoreTone(4999, true)).toBe("close");
+    expect(scoreTone(4000, true)).toBe("close");
+    expect(scoreTone(3999, true)).toBe("mid");
+    expect(scoreTone(1500, true)).toBe("mid");
+    expect(scoreTone(1499, true)).toBe("far");
+    expect(scoreTone(0, true)).toBe("far");
+  });
+
+  it("has a text colour and a fill for every tone", () => {
+    for (const tone of ["bullseye", "close", "mid", "far", "none"] as const) {
+      expect(TONE_TEXT[tone]).toMatch(/^text-/);
+      expect(TONE_FILL[tone]).toMatch(/^bg-/);
+    }
   });
 });

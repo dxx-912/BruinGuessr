@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
 import { safeNextPath } from "@/lib/server/auth";
 import { currentPlayer } from "@/lib/server/profile";
 import { suggestUsername } from "@/lib/username";
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: "Pick a username", robots: { index: f
 export default function WelcomePage({ searchParams }: PageProps<"/welcome">) {
   return (
     <section className="mx-auto grid w-full max-w-xl flex-1 content-center px-4 py-10 sm:px-6">
+      <CampusBackdrop />
         <Suspense fallback={<div className="h-72 animate-pulse rounded-[20px] bg-navy" />}>
           <Welcome searchParams={searchParams} />
         </Suspense>

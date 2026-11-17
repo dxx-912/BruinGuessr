@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLayoutEffect, useState } from "react";
+import { SwordsIcon, TargetIcon } from "@/components/art/icons";
 import { api, ApiError } from "@/lib/game/api";
 
 const tile =
   "btn flex h-full min-h-44 w-full !flex-col !items-start !justify-between gap-4 !whitespace-normal !rounded-[24px] !p-6 text-left sm:min-h-52 sm:!p-7";
 
-function TileText({ title, body }: { title: string; body: string }) {
+function TileText({ title, body, icon }: { title: string; body: string; icon: React.ReactNode }) {
   return (
     <>
-      <span className="text-6xl sm:text-7xl">{title}</span>
+      <span className="flex w-full items-start justify-between gap-3">
+        <span className="text-6xl sm:text-7xl">{title}</span>
+        <span className="h-11 w-11 shrink-0 opacity-80 [&>svg]:h-full [&>svg]:w-full">{icon}</span>
+      </span>
       <span className="font-sans text-lg font-semibold normal-case not-italic leading-snug">{body}</span>
     </>
   );
@@ -58,7 +62,7 @@ export function SoloButton({ needsUsername }: { needsUsername: boolean }) {
   return (
     <div className="h-full">
       <button type="button" className={`${tile} btn-gold`} onClick={start} disabled={starting} aria-busy={starting}>
-        <TileText title={starting ? "Starting…" : "Solo"} body="See how high you can score on the leaderboard." />
+        <TileText title={starting ? "Starting…" : "Solo"} body="See how high you can score on the leaderboard." icon={<TargetIcon />} />
       </button>
       {problem && (
         <p role="alert" className="mt-2 font-semibold text-alarm">
@@ -73,7 +77,7 @@ export function SoloButton({ needsUsername }: { needsUsername: boolean }) {
 export function VersusButton() {
   return (
     <Link href="/versus" className={`${tile} btn-blue`}>
-      <TileText title="Versus" body="Join or host a lobby to play with friends!" />
+      <TileText title="Versus" body="Join or host a lobby to play with friends!" icon={<SwordsIcon />} />
     </Link>
   );
 }

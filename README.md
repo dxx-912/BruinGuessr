@@ -14,6 +14,7 @@ npm run test:live    # game rules against the real database (see "Tests" below)
 npm run typecheck
 npm run lint
 npm run icons:build  # redraw the favicon and app icons (only when the mark changes)
+npm run art:build    # redraw the campus scene, public/art/campus-scene.svg (needs python3)
 ```
 
 `.env.local` (not committed) holds `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `MAPILLARY_TOKEN`.

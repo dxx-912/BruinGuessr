@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
+import { TrophyIcon } from "@/components/art/icons";
+import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
 import { LEADERBOARD_PAGE_SIZE, ordinal, pageOfRank, type LeaderboardRow } from "@/lib/leaderboard";
 import { currentUser } from "@/lib/server/auth";
@@ -14,32 +17,30 @@ export const metadata = pageMetadata({
 
 export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-        <h1 className="display text-[clamp(3rem,10vw,5.5rem)]">
+    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+      <CampusBackdrop />
+      <div className="text-center">
+        <h1 className="display text-[clamp(3rem,10vw,5rem)]">
           Leader<span className="text-ucla-gold">board</span>
         </h1>
-        <p className="mt-2 text-sky">Each player&rsquo;s best solo game out of 25,000. Equal scores go to whoever got there first. Versus games are played for the win, not for the board.</p>
+        <p className="mx-auto mt-2 max-w-xl text-sky">Each player&rsquo;s best solo game out of 25,000. Equal scores go to whoever got there first. Versus games are played for the win, not for the board.</p>
+      </div>
 
-        <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-[20px] bg-navy" />}>
-          <Board searchParams={searchParams} />
-        </Suspense>
+      <Suspense fallback={<div className="panel mt-8 h-96 animate-pulse" />}>
+        <Board searchParams={searchParams} />
+      </Suspense>
     </section>
   );
 }
 
 const dateFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
 
+const COLUMNS = "grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 sm:grid-cols-[3rem_1fr_8rem_6.5rem]";
+
 function Row({ row }: { row: LeaderboardRow }) {
-  const podium = row.rank <= 3;
   return (
-    <li
-      className={`grid grid-cols-[3.5rem_1fr_auto] items-center gap-3 px-4 py-3 sm:grid-cols-[4.5rem_1fr_8rem_auto] ${
-        row.isYou ? "bg-ucla-blue" : "odd:bg-night/40"
-      }`}
-    >
-      <span className={`display numeric text-3xl ${row.rank === 1 ? "text-ucla-gold" : podium ? "text-paper" : "text-sky"} ${row.isYou ? "!text-paper" : ""}`}>
-        {row.rank}
-      </span>
+    <li className={`row ${COLUMNS} px-3 py-2.5 ${row.isYou ? "!border-ucla-blue !bg-ucla-blue" : row.rank === 1 ? "!border-ucla-gold/60" : ""}`}>
+      <RankDisc rank={row.rank} />
       <span className="min-w-0 truncate text-lg font-semibold">
         <Link href={`/profile/${row.username}`} className="hover:underline hover:decoration-2 hover:underline-offset-4">
           {row.username}
@@ -47,7 +48,7 @@ function Row({ row }: { row: LeaderboardRow }) {
         {row.isYou && <span className="ml-2 rounded-full bg-paper px-2 py-0.5 text-xs font-bold text-night">You</span>}
       </span>
       <span className={`hidden text-sm sm:block ${row.isYou ? "text-paper" : "text-sky"}`}>{dateFormat.format(row.reachedAt)}</span>
-      <span className={`display numeric text-right text-3xl ${row.rank === 1 && !row.isYou ? "text-ucla-gold" : ""}`}>{formatPoints(row.score)}</span>
+      <span className={`display numeric text-right text-3xl ${row.isYou ? "text-paper" : "text-ucla-gold"}`}>{formatPoints(row.score)}</span>
     </li>
   );
 }
@@ -62,7 +63,7 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
 
   if (board.total === 0) {
     return (
-      <div className="panel mt-8 !rounded-[20px] p-8 text-center">
+      <div className="panel mt-8 p-8 text-center">
         <p className="display text-4xl">No scores yet</p>
         <p className="mt-2 text-sky">Finish a game and your score goes up here first.</p>
         <Link href="/" className="btn btn-gold mt-6">
@@ -75,10 +76,13 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
   return (
     <div className="mt-8">
       {user && (
-        <div className="panel mb-4 flex flex-wrap items-center justify-between gap-3 !rounded-[20px] px-5 py-4">
+        <div className="panel mb-4 flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
+          <span className="chip bg-ucla-blue">
+            <TrophyIcon />
+          </span>
           {board.you ? (
             <>
-              <p className="font-semibold">
+              <p className="flex-1 font-semibold">
                 You&rsquo;re <span className="display text-3xl text-ucla-gold">{ordinal(board.you.rank)}</span> of {formatPoints(board.total)} with{" "}
                 <span className="display numeric text-3xl">{formatPoints(board.you.score)}</span>
               </p>
@@ -89,43 +93,45 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
               )}
             </>
           ) : (
-            <p className="font-semibold text-sky">Finish a game to get on the board.</p>
+            <p className="flex-1 font-semibold text-sky">Finish a solo game to get on the board.</p>
           )}
         </div>
       )}
 
-      <div className="panel overflow-hidden !rounded-[20px] !p-0">
-        <div className="grid grid-cols-[3.5rem_1fr_auto] gap-3 border-b-2 border-navy-line px-4 py-2 text-sm font-semibold text-sky sm:grid-cols-[4.5rem_1fr_8rem_auto]">
+      <div className="panel p-2 sm:p-3">
+        <div className={`${COLUMNS} px-3 pb-2 pt-1 text-sm font-semibold text-sky`}>
           <span>Rank</span>
           <span>Player</span>
           <span className="hidden sm:block">Reached</span>
           <span className="text-right">Best</span>
         </div>
         {board.rows.length ? (
-          <ol>
+          <ol className="space-y-1.5">
             {board.rows.map((row) => (
               <Row key={row.rank} row={row} />
             ))}
           </ol>
         ) : (
-          <p className="px-4 py-6 text-sky">Nobody this far down yet.</p>
+          <p className="px-3 py-6 text-sky">Nobody this far down yet.</p>
         )}
         {/* The player's own row, pinned under the page when it is somewhere else. */}
         {board.you && !youOnPage && (
-          <ol className="border-t-2 border-dashed border-navy-line" aria-label="Your rank">
+          <ol className="mt-2 border-t-2 border-dashed border-navy-line pt-2" aria-label="Your rank">
             <Row row={board.you} />
           </ol>
         )}
       </div>
 
       {pages > 1 && (
-        <nav className="mt-4 flex items-center justify-between" aria-label="Leaderboard pages">
+        <nav className="mt-4 flex items-center justify-center gap-4" aria-label="Leaderboard pages">
           {page > 1 ? (
             <Link href={`/leaderboard?page=${page - 1}`} className="btn btn-quiet !py-2 !text-lg">
               Previous
             </Link>
           ) : (
-            <span />
+            <span className="btn btn-quiet pointer-events-none !py-2 !text-lg opacity-40" aria-hidden>
+              Previous
+            </span>
           )}
           <span className="text-sm font-semibold text-sky">
             Page {page} of {pages}
@@ -135,7 +141,9 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
               Next
             </Link>
           ) : (
-            <span />
+            <span className="btn btn-quiet pointer-events-none !py-2 !text-lg opacity-40" aria-hidden>
+              Next
+            </span>
           )}
         </nav>
       )}

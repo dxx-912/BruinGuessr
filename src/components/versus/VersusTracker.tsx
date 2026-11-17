@@ -2,7 +2,7 @@ import { formatPoints } from "@/lib/game/format";
 import type { VersusInfo } from "@/lib/game/types";
 import { formatMultiplier, healthShare, healthTone, isOut } from "@/lib/versus/health";
 
-const TEXT = { good: "text-health", low: "text-ucla-gold", critical: "text-alarm" } as const;
+const TEXT = { good: "text-health", low: "text-hurt", critical: "text-alarm" } as const;
 
 type Props = {
   currentRound: number;
@@ -21,7 +21,7 @@ export default function VersusTracker({ currentRound, multiplier, versus }: Prop
   const tone = healthTone(healthShare(me?.health ?? 0, versus.startHealth));
   const hot = multiplier !== null && multiplier > 1;
   const health = (
-    <p className={`display numeric text-2xl leading-tight ${out ? "text-sky/70" : TEXT[tone]}`}>{out ? "Out" : formatPoints(me?.health ?? 0)}</p>
+    <p className={`display numeric text-2xl leading-tight ${out ? "text-out" : TEXT[tone]}`}>{out ? "Out" : formatPoints(me?.health ?? 0)}</p>
   );
   const times = multiplier !== null && <span className={hot ? "text-alarm" : "text-paper"}>{formatMultiplier(multiplier)}</span>;
   return (

@@ -98,3 +98,10 @@ export async function deleteAccount(userId: string): Promise<void> {
   const { error } = await adminClient().auth.admin.deleteUser(userId);
   if (error) throw new Error(`[profile] could not delete the account: ${error.message}`);
 }
+
+/** When the account was made, in ms since 1970. */
+export async function memberSince(userId: string): Promise<number | null> {
+  const { data, error } = await adminClient().from("profiles").select("created_at").eq("id", userId).maybeSingle();
+  if (error) throw new Error(`[profile] could not read the join date: ${error.message}`);
+  return data?.created_at ? Date.parse(data.created_at) : null;
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
 import Wordmark, { PinMark } from "@/components/Wordmark";
 
 /**
@@ -15,7 +16,8 @@ export default function ErrorPage({ error, retry }: { error: unknown; retry: () 
   }, [error]);
 
   return (
-    <main className="flex flex-1 flex-col bg-night text-paper">
+    <main className="relative isolate flex flex-1 flex-col bg-night text-paper">
+      <CampusBackdrop sidebar={false} />
       <header className="mx-auto flex w-full max-w-6xl items-center px-5 pt-5">
         <Link href="/" className="flex items-center gap-2" aria-label="BruinGuessr home">
           <PinMark className="h-8 w-auto" />

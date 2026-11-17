@@ -23,7 +23,8 @@
     "test:live": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run --config vitest.live.config.mts",
     "photos:reports": "tsx --env-file=.env.local scripts/pipeline/reports.ts",
     "usernames": "tsx --env-file=.env.local scripts/admin/usernames.ts",
-    "photos:rotate": "tsx --env-file=.env.local scripts/pipeline/rotate-filenames.ts"
+    "photos:rotate": "tsx --env-file=.env.local scripts/pipeline/rotate-filenames.ts",
+    "art:build": "python3 scripts/build-campus-scene.py public/art/campus-scene.svg"
   },
   "dependencies": {
     "@supabase/realtime-js": "2.119.0",

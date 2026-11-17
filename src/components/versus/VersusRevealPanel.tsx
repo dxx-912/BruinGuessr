@@ -9,6 +9,7 @@ import { serverClock } from "@/lib/game/api";
 import { formatDistance, formatPoints, roundVerdict } from "@/lib/game/format";
 import { sound } from "@/lib/game/sound";
 import type { RoundResult, VersusInfo } from "@/lib/game/types";
+import { scoreTone, TONE_TEXT } from "@/lib/game/tone";
 import { formatMultiplier, isOut, standingRank, standings } from "@/lib/versus/health";
 import HealthBar from "./HealthBar";
 import { SeatBadge } from "./SeatBadge";
@@ -114,12 +115,12 @@ export default function VersusRevealPanel({ gameId, result, versus, finished, ph
               </p>
               {watching ? (
                 <>
-                  <p className="display mt-0.5 text-4xl text-sky lg:text-5xl">You&apos;re out</p>
+                  <p className="display mt-0.5 text-4xl text-out lg:text-5xl">You&apos;re out</p>
                   <p className="mt-0.5 truncate text-sm font-semibold">Watching the rest of the game.</p>
                 </>
               ) : (
                 <>
-                  <p className="display mt-0.5 flex items-baseline gap-2 text-4xl text-ucla-gold lg:text-5xl">
+                  <p className={`display mt-0.5 flex items-baseline gap-2 text-4xl lg:text-5xl ${TONE_TEXT[scoreTone(result.score, result.guess !== null)]}`}>
                     <CountUp value={result.score} delayMs={450} />
                     <span className="text-xl text-paper">points</span>
                   </p>
@@ -147,16 +148,16 @@ export default function VersusRevealPanel({ gameId, result, versus, finished, ph
                     {player.isYou && <span className="ml-1 font-medium text-sky">(you)</span>}
                   </span>
                   {outBefore ? (
-                    <span className="text-xs font-semibold text-sky">Out in round {player.eliminatedRound}</span>
+                    <span className="text-xs font-semibold text-out">Out in round {player.eliminatedRound}</span>
                   ) : (
                     <>
                       <span className="hidden w-16 text-right text-sky sm:block">{round?.guess && round.distanceM !== null ? formatDistance(round.distanceM) : "No guess"}</span>
-                      <span className={`numeric w-12 text-right font-semibold sm:w-14 ${round && round.score >= MAX ? "text-ucla-gold" : ""}`}>+{formatPoints(round?.score ?? 0)}</span>
+                      <span className={`numeric w-12 text-right font-semibold sm:w-14 ${round ? TONE_TEXT[scoreTone(round.score, round.guess !== null)] : "text-out"}`}>+{formatPoints(round?.score ?? 0)}</span>
                       {legacy ? (
                         <span className="display numeric w-16 text-right text-xl text-ucla-gold">{formatPoints(player.total)}</span>
                       ) : (
                         <>
-                          <span className={`numeric w-14 text-right font-semibold ${round?.damage ? "text-alarm" : "text-sky/60"}`}>{round?.damage ? `−${formatPoints(round.damage)}` : "0"}</span>
+                          <span className={`numeric w-14 text-right font-semibold ${round?.damage ? "text-alarm" : "text-out"}`}>{round?.damage ? `−${formatPoints(round.damage)}` : "0"}</span>
                           {round?.eliminated ? (
                             <span className="display w-16 text-right text-base text-alarm sm:w-24">Out!</span>
                           ) : (

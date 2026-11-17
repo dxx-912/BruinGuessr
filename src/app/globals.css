@@ -11,8 +11,19 @@
   --color-gold-deep: #b38f00;
   --color-paper: #f4f8fc;
   --color-alarm: #ff5a4d;
-  /* Versus health (Phase 6b). Damage uses alarm. Phase 6c revisits the palette. */
+  /* Campus colours (Phase 6c): Royce Hall's brick, the lawns, cast-stone trim. */
+  --color-brick: #b9472a;
+  --color-brick-deep: #7e2e19;
+  --color-brick-light: #f28b6c;
+  --color-green: #237a4b;
+  --color-green-deep: #164f30;
+  --color-leaf: #7fd48b;
+  --color-sand: #f3d9a4;
+  --color-silver: #c9d6e2;
+  /* Versus health: plenty, getting low (orange, so gold keeps meaning "the answer"), knocked out. Damage uses alarm. */
   --color-health: #3ed68a;
+  --color-hurt: #ff9f43;
+  --color-out: #8496ab;
   /* Used by the development review pages. */
   --color-ink: #0b1f33;
 
@@ -191,6 +202,48 @@ main[data-game] {
     background: var(--color-paper);
   }
 
+  .btn-brick {
+    --lip-color: var(--color-brick-deep);
+    background: var(--color-brick);
+    color: var(--color-paper);
+  }
+  .btn-brick:hover:not(:disabled) {
+    background: #c9563a;
+  }
+
+  /* A small outlined button, for settings rows: gold outline and gold text. */
+  .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 10px;
+    border: 2px solid var(--color-ucla-gold);
+    padding: 0.45rem 0.9rem;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 1.05rem;
+    line-height: 1;
+    text-transform: uppercase;
+    color: var(--color-ucla-gold);
+    cursor: pointer;
+    transition: background-color 120ms, color 120ms;
+  }
+  .btn-outline:hover:not(:disabled) {
+    background: var(--color-ucla-gold);
+    color: var(--color-night);
+  }
+  .btn-outline:focus-visible {
+    outline: 2px solid var(--color-paper);
+    outline-offset: 2px;
+  }
+  .btn-outline:disabled {
+    border-color: var(--color-navy-line);
+    color: var(--color-out);
+    cursor: not-allowed;
+  }
+
   /* Only for deleting things for good. */
   .btn-red {
     --lip-color: #a3261d;
@@ -227,6 +280,29 @@ main[data-game] {
   .btn-quiet:focus-visible {
     outline: 2px solid var(--color-paper);
     outline-offset: 2px;
+  }
+
+  /* A rounded row inside a panel: leaderboard rows, recent games, settings rows. */
+  .row {
+    background: rgb(6 24 43 / 0.7);
+    border: 1px solid var(--color-navy-line);
+    border-radius: 14px;
+  }
+
+  /* An icon on a small square of colour: feature bubbles, stat tiles, panel headings. */
+  .chip {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    color: var(--color-paper);
+    box-shadow: 0 3px 0 rgb(2 10 20 / 0.45);
+  }
+  .chip > svg {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
   /* A panel that floats over the photo or the map. */

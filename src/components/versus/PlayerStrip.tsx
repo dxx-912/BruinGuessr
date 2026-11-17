@@ -35,7 +35,7 @@ export default function PlayerStrip({ players, startHealth }: { players: VersusP
               </span>
               {startHealth !== null && !out && <HealthBar health={p.health} start={startHealth} className="mt-0.5" />}
             </span>
-            <span className={`hidden self-start pt-0.5 text-xs font-semibold md:block ${out ? "text-alarm" : p.locked && !p.away ? "text-ucla-gold" : "text-sky"}`}>{status}</span>
+            <span className={`hidden self-start pt-0.5 text-xs font-semibold md:block ${out ? "text-out" : p.locked && !p.away ? "text-ucla-gold" : "text-sky"}`}>{status}</span>
             <span className="sr-only md:hidden">
               {p.username}: {status}
               {startHealth !== null && !out ? `, ${p.health ?? 0} health` : ""}

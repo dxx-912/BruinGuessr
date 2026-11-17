@@ -1,8 +1,8 @@
 import { formatPoints } from "@/lib/game/format";
 import { healthShare, healthTone } from "@/lib/versus/health";
 
-const FILL = { good: "bg-health", low: "bg-ucla-gold", critical: "bg-alarm" } as const;
-const TEXT = { good: "text-health", low: "text-ucla-gold", critical: "text-alarm" } as const;
+const FILL = { good: "bg-health", low: "bg-hurt", critical: "bg-alarm" } as const;
+const TEXT = { good: "text-health", low: "text-hurt", critical: "text-alarm" } as const;
 
 type Props = {
   health: number | null;
@@ -12,7 +12,7 @@ type Props = {
   className?: string;
 };
 
-/** A player's health: a bar that drains from the right, green to gold to red, with the number beside it. */
+/** A player's health: a bar that drains from the right, green to orange to red, with the number beside it. */
 export default function HealthBar({ health, start, number = true, className = "" }: Props) {
   const share = healthShare(health, start);
   const tone = healthTone(share);
@@ -28,7 +28,7 @@ export default function HealthBar({ health, start, number = true, className = ""
       >
         <span className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 ease-out ${FILL[tone]}`} style={{ width: `${share * 100}%` }} />
       </span>
-      {number && <span className={`display numeric text-base leading-none ${health === 0 ? "text-sky/60" : TEXT[tone]}`}>{formatPoints(health ?? 0)}</span>}
+      {number && <span className={`display numeric text-base leading-none ${health === 0 ? "text-out" : TEXT[tone]}`}>{formatPoints(health ?? 0)}</span>}
     </span>
   );
 }

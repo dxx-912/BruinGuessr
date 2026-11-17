@@ -86,7 +86,7 @@ export function ChangeUsername({ current, nextChangeAt }: { current: string; nex
     return (
       <div className="mt-3">
         <p className="text-2xl font-semibold">{saved ?? current}</p>
-        {saved && <p className="mt-2 font-semibold text-ucla-gold">Saved. You&rsquo;re {saved} now.</p>}
+        {saved && <p className="mt-2 font-semibold text-leaf">Saved. You&rsquo;re {saved} now.</p>}
         <p className="mt-2 text-sky">
           You can change your username once every 30 days. Next change: <span className="font-semibold text-paper">{formatDay(lockedUntil!)}</span>.
         </p>
@@ -98,7 +98,7 @@ export function ChangeUsername({ current, nextChangeAt }: { current: string; nex
     ? { text: MESSAGES[problem], bad: true }
     : unchanged
       ? { text: `Same rules as before: 3 to ${USERNAME_MAX} letters, numbers or underscores. You can change it once every 30 days.`, bad: false }
-      : { text: caseOnly || check?.name === trimmed ? `${trimmed} is free.` : "Checking…", bad: false };
+      : { text: caseOnly || check?.name === trimmed ? `${trimmed} is free.` : "Checking…", bad: false, good: caseOnly || check?.name === trimmed };
 
   return (
     <form onSubmit={submit} className="mt-3" noValidate>
@@ -123,7 +123,7 @@ export function ChangeUsername({ current, nextChangeAt }: { current: string; nex
           {saving ? "Saving…" : "Change"}
         </button>
       </div>
-      <p id={hintId} aria-live="polite" className={`mt-2 min-h-6 text-sm font-semibold ${hint.bad ? "text-alarm" : "text-sky"}`}>
+      <p id={hintId} aria-live="polite" className={`mt-2 min-h-6 text-sm font-semibold ${hint.bad ? "text-alarm" : "good" in hint && hint.good ? "text-leaf" : "text-sky"}`}>
         {hint.text}
       </p>
       {error && (
@@ -171,7 +171,7 @@ export function DeleteAccount({ username }: { username: string }) {
 
   if (!open) {
     return (
-      <button type="button" className="btn btn-red mt-4" onClick={() => setOpen(true)}>
+      <button type="button" className="btn btn-red mt-4 !text-lg" onClick={() => setOpen(true)}>
         Delete account
       </button>
     );

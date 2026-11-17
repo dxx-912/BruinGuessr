@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
 import { SeatBadge } from "@/components/versus/SeatBadge";
 import Wordmark, { PinMark } from "@/components/Wordmark";
 import { api, ApiError } from "@/lib/game/api";
 import { useRoomPing } from "@/lib/versus/realtime";
-import type { RoomState } from "@/lib/versus/types";
+import { seatColor, type RoomState } from "@/lib/versus/types";
 
 /** Why this player cannot be in the room. */
 type Problem = "not_found" | "room_locked" | "room_full" | "failed";
@@ -238,7 +239,11 @@ export default function LobbyClient({ code }: { code: string | null }) {
         <ol className="mt-3 grid gap-2 sm:grid-cols-2">
           {seats.map((member, i) =>
             member ? (
-              <li key={member.seat} className={`flex animate-pop items-center gap-3 rounded-2xl border-2 border-navy-line bg-navy px-3 py-2.5 ${member.away || !member.ready ? "opacity-60" : ""}`}>
+              <li
+                key={member.seat}
+                style={{ borderLeftColor: seatColor(member.seat) }}
+                className={`flex animate-pop items-center gap-3 rounded-2xl border-2 border-l-[6px] border-navy-line bg-navy px-3 py-2.5 ${member.away || !member.ready ? "opacity-60" : ""}`}
+              >
                 <SeatBadge seat={member.seat} name={member.username} className="h-10 w-10 text-2xl" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-lg font-semibold leading-tight">
@@ -250,7 +255,7 @@ export default function LobbyClient({ code }: { code: string | null }) {
                 {member.isHost && <span className="display rounded-full bg-ucla-gold px-2.5 py-0.5 text-base text-night">Host</span>}
               </li>
             ) : (
-              <li key={`open-${i}`} className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-navy-line px-3 py-2.5 text-sky">
+              <li key={`open-${i}`} className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-navy-line bg-night/70 px-3 py-2.5 text-sky">
                 <span className="grid h-10 w-10 place-items-center rounded-full border-2 border-dashed border-navy-line" aria-hidden>
                   {i + 1}
                 </span>
@@ -260,7 +265,7 @@ export default function LobbyClient({ code }: { code: string | null }) {
           )}
         </ol>
 
-        <p className="mt-4 text-sky">
+        <p className="panel mt-4 !rounded-[14px] px-4 py-3 text-sky">
           <span className="font-semibold text-paper">Last one standing wins.</span> Everyone starts with full health. Each round the best pin is safe, and everyone else
           loses the points they fell short by. The first guess in cuts everyone else&rsquo;s clock, and damage grows the longer the game goes.
         </p>
@@ -291,7 +296,12 @@ export default function LobbyClient({ code }: { code: string | null }) {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <main className="relative flex flex-1 flex-col bg-night text-paper">{children}</main>;
+  return (
+    <main className="relative isolate flex flex-1 flex-col bg-night text-paper">
+      <CampusBackdrop sidebar={false} />
+      {children}
+    </main>
+  );
 }
 
 function Notice({ text }: { text: string }) {

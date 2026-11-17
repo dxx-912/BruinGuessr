@@ -49,7 +49,8 @@ export function normalizeRoomCode(input: string): string | null {
  * their pin on the map and their row on the scoreboard. Gold is not here: it
  * belongs to the answer.
  */
-export const SEAT_COLORS = ["#2774AE", "#E5484D", "#1E9E62", "#8B5CD6", "#DD7A12"] as const;
+// Blue, raspberry, teal, violet, brick: never red, green or orange, which mean damage, health and "getting low".
+export const SEAT_COLORS = ["#2774AE", "#C2387F", "#0B7F8C", "#7650D0", "#B9472A"] as const;
 export const seatColor = (seat: number): string => SEAT_COLORS[(seat - 1) % SEAT_COLORS.length] ?? SEAT_COLORS[0];
 
 /** The letter on a player's pin and chip. */

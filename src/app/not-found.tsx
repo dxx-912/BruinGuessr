@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CampusBackdrop } from "@/components/art/CampusScene";
 import SiteHeader from "@/components/SiteHeader";
 import { campusSvgPath, campusSvgPoint } from "@/lib/map/campus";
 
@@ -37,7 +38,8 @@ function OffTheMap({ className = "" }: { className?: string }) {
  */
 export default function NotFound() {
   return (
-    <main className="flex flex-1 flex-col bg-night text-paper">
+    <main className="relative isolate flex flex-1 flex-col bg-night text-paper">
+      <CampusBackdrop sidebar={false} />
       <SiteHeader />
       <section className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-6 px-5 py-10 md:grid-cols-[1.1fr_1fr] md:py-14">
         <div>
@@ -49,7 +51,7 @@ export default function NotFound() {
 
           {/* The reveal panel's score line, for a guess that could not have scored. */}
           <div className="panel mt-7 max-w-md p-4">
-            <p className="display flex items-baseline gap-2 text-5xl text-ucla-gold">
+            <p className="display flex items-baseline gap-2 text-5xl text-out">
               <span className="numeric">0</span>
               <span className="text-2xl text-paper">points</span>
             </p>

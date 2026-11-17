@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
-import LoadingMark from "@/components/LoadingMark";
 import Link from "next/link";
+import { Suspense } from "react";
+import { CampusBackdrop } from "@/components/art/CampusScene";
+import LoadingMark from "@/components/LoadingMark";
 import SiteHeader from "@/components/SiteHeader";
 import { currentPlayer } from "@/lib/server/profile";
 import { pageMetadata } from "@/lib/site";
@@ -50,7 +51,8 @@ async function Room({ params }: { params: Promise<{ code: string }> }) {
 /** A friend's link, opened by someone who is not signed in yet: the room code and one button. */
 function Invitation({ code, next }: { code: string; next: string }) {
   return (
-    <main className="flex flex-1 flex-col bg-night text-paper">
+    <main className="relative isolate flex flex-1 flex-col bg-night text-paper">
+      <CampusBackdrop sidebar={false} />
       <SiteHeader />
       <section className="mx-auto w-full max-w-3xl flex-1 px-5 pb-10 pt-8">
         <p className="font-semibold text-sky">You&rsquo;re invited to a versus game</p>
