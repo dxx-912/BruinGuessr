@@ -52,7 +52,7 @@ Gold always carries dark text (`night`). Blue and navy carry `paper` text.
 - Top centre: timer pill with seconds and a draining bar. Gold in the last ten seconds, red and ticking in the last five.
 - Top right: round tracker (five pips with each round's score filled in as it is earned) and the running total.
 - Bottom right: the campus map. Small at rest, large on hover or focus. Under it one gold button: "Place your pin" (disabled) then "Guess".
-- Narrow screens: photo on top, map on the bottom half, button pinned under the map.
+- Phones: photo on top, map on the lower half, button pinned under the map. A button in the map's corner gives the map three quarters of the screen for placing the pin, and back. Touch targets are at least 40 px. The mark at top left asks before leaving a game in progress. A phone on its side shows "Turn your phone upright".
 - Before the clock starts, a short "Round 3" card covers the photo while it loads.
 
 **Reveal.** The map takes the whole screen. The player's pin and the gold flag, a dashed line drawn between them, the camera fitted to both. A panel slides up from the bottom: distance in words ("84 m away"), the points counting up beside a bar that fills toward 5,000, the photo as a thumbnail, the photographer credit and license, a quiet "Report photo" control, and the gold "Next round" button. Within 10 m: "BULLSEYE" stamp and a burst of blue and gold confetti.
@@ -84,6 +84,13 @@ Marks and pins carry white letters and a white ring. A player's own pin is a lit
 **Reveal.** The map shows every pin in its seat colour, each with a dashed line in the same colour drawn to the gold flag. The panel holds this player's points, then the scoreboard (rank, mark, name, distance, points this round, running total, best first, own row highlighted), then what comes next: a gold "Next round" for the host, a countdown for everyone else.
 
 **Final standings.** The summary screen with the standings above the rounds: the winner's row has a gold border and a "Winner" pill. Pointing at a round on the list shows everyone's pins for it on the map. Buttons: gold "Rematch", blue "Home".
+
+## Icon, share images, 404
+
+- **Icon.** The header's gold pin, with its dark outline and a solid lip under it, on a UCLA Blue tile. One drawing for every size (`npm run icons:build`): favicon, Apple touch icon, home-screen icons.
+- **Share images** (1200 × 630, drawn in code by `src/lib/share-image.tsx`). Night background, a gold rule along the bottom edge. The site image: the wordmark stacked large, "Where on campus was this photo taken?", three scoreboard chips, and the campus drawing with pin, flag and dashed line. A room link: "JOIN MY GAME" and the room code as five scoreboard tiles.
+- **404.** "Off the map": the campus outline with a pin dropped outside it, and the reveal panel's score line reading 0 points.
+- **Loading.** The campus outline with a gold pin hopping on it, and a short label ("Setting up your game…").
 
 ## Motion and sound
 

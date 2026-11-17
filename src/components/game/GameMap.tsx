@@ -126,10 +126,30 @@ export default function GameMap({ view, onPin, inset }: Props) {
   useEffect(() => {
     live.current = { view, onPin, inset };
   }, [view, onPin, inset]);
+  /** Camera padding: the space the panels cover, plus a margin so pins are not drawn against an edge. */
   const padding = (edge: number, side: number) => {
     const pad = live.current.inset ?? {};
-    return { top: (pad.top ?? 0) + edge, bottom: (pad.bottom ?? 0) + edge, left: (pad.left ?? 0) + side, right: (pad.right ?? 0) + side };
+    const box = container.current;
+    const width = box?.clientWidth ?? 0;
+    const height = box?.clientHeight ?? 0;
+    // A phone has no room for desktop margins.
+    if (width && width < 520) [edge, side] = [Math.min(edge, 28), Math.min(side, 44)];
+    let top = (pad.top ?? 0) + edge;
+    let bottom = (pad.bottom ?? 0) + edge;
+    // The map cannot zoom out past the campus, so two far-apart pins need a strip of a certain
+    // height or it gives up framing them. On a small phone that means letting the padding give:
+    // a pin partly under a panel beats a camera that never moved.
+    const spare = height - 140;
+    if (height && top + bottom > spare) {
+      const squeeze = Math.max(0, spare) / (top + bottom);
+      top *= squeeze;
+      bottom *= squeeze;
+    }
+    return { top, bottom, left: (pad.left ?? 0) + side, right: (pad.right ?? 0) + side };
   };
+  /** The inset the camera was last framed with, so a change to it re-frames once and only once. */
+  const framedInset = useRef("");
+  const insetKey = `${inset?.top ?? 0}/${inset?.bottom ?? 0}/${inset?.left ?? 0}/${inset?.right ?? 0}`;
 
   // ---- Start the map once -------------------------------------------------------------
   useEffect(() => {
@@ -137,6 +157,9 @@ export default function GameMap({ view, onPin, inset }: Props) {
     let cancelled = false;
     let map: MapLibreMap | undefined;
     let observer: ResizeObserver | undefined;
+    // The map's style and tiles come from another server. If they have not arrived after a
+    // while, say so and offer a reload instead of "Loading the map…" for ever.
+    const slow = window.setTimeout(() => !cancelled && setFailed(true), 20_000);
 
     loadMapLibre()
       .then((maplibre) => {
@@ -181,6 +204,8 @@ export default function GameMap({ view, onPin, inset }: Props) {
             // Versus lines carry their player's colour.
             paint: { "line-color": ["coalesce", ["get", "color"], NIGHT], "line-width": 3, "line-dasharray": [1.6, 1.4] },
           });
+          window.clearTimeout(slow);
+          setFailed(false);
           setReady(true);
         });
 
@@ -208,10 +233,11 @@ export default function GameMap({ view, onPin, inset }: Props) {
         });
         observer.observe(container.current);
       })
-      .catch(() => setFailed(true));
+      .catch(() => !cancelled && setFailed(true));
 
     return () => {
       cancelled = true;
+      window.clearTimeout(slow);
       observer?.disconnect();
       cancelAnimationFrame(animation.current);
       mapRef.current = null;
@@ -284,6 +310,7 @@ export default function GameMap({ view, onPin, inset }: Props) {
     if (!ready || !map || !MarkerClass || !result) return;
     map.resize();
     const pad = padding(60, 60);
+    framedInset.current = insetKey;
     const quick = reducedMotion();
     const source = map.getSource("lines") as GeoJSONSource;
     const flag = () => {
@@ -318,7 +345,22 @@ export default function GameMap({ view, onPin, inset }: Props) {
       else flag();
     };
     animation.current = requestAnimationFrame(step);
+    // insetKey is read once here; the effect below follows it without replaying the reveal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, result, players]);
+
+  // The panel over the reveal was measured, or the phone was turned: move the camera so the
+  // pins stay clear of it. Only the camera moves; the pins and lines are left as they are.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !result || framedInset.current === insetKey) return;
+    framedInset.current = insetKey;
+    const pad = padding(60, 60);
+    const duration = reducedMotion() ? 0 : 300;
+    const pins = pinsOf(result, players);
+    if (pins.length) map.fitBounds(boundsOf([result.answer, ...pins.map((pin) => pin.at)]), { padding: pad, maxZoom: 18, duration });
+    else map.easeTo({ center: toLngLat(result.answer), padding: pad, duration });
+  }, [ready, result, players, insetKey]);
 
   // Summary: every round's pair, numbered.
   useEffect(() => {
@@ -363,19 +405,22 @@ export default function GameMap({ view, onPin, inset }: Props) {
     ]);
     if (!points.length) return;
     map.fitBounds(boundsOf(points), { padding: padding(50, 50), maxZoom: 17.5, duration: reducedMotion() ? 0 : 600 });
-  }, [ready, results, focus, players]);
+  }, [ready, results, focus, players, insetKey]);
 
   return (
-    <div className="game-map relative h-full w-full bg-[#dfe7ee]" data-placing={canPlace}>
+    <div className="game-map relative h-full w-full bg-[#dfe7ee]" data-placing={canPlace} data-kind={kind}>
       {/* MapLibre sets position: relative on its container, so the wrapper carries the size. */}
       <div ref={container} className="h-full w-full" />
       {!ready && !failed && (
         <p className="absolute inset-0 grid place-items-center text-sm font-semibold text-[#3b566f]">Loading the map…</p>
       )}
-      {failed && (
-        <p className="absolute inset-0 grid place-items-center p-4 text-center text-sm font-semibold text-[#8a1c13]">
-          The map could not load. Check your connection and reload the page.
-        </p>
+      {failed && !ready && (
+        <div className="absolute inset-0 grid place-content-center justify-items-center gap-3 p-4 text-center">
+          <p className="text-sm font-semibold text-[#8a1c13]">The map could not load. Check your connection.</p>
+          <button type="button" className="btn btn-blue !text-lg" onClick={() => window.location.reload()}>
+            Reload
+          </button>
+        </div>
       )}
     </div>
   );

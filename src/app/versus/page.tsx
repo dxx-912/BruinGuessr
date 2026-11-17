@@ -1,26 +1,28 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import Wordmark, { PinMark } from "@/components/Wordmark";
+import SiteFooter from "@/components/SiteFooter";
+import SiteHeader from "@/components/SiteHeader";
 import { currentPlayer } from "@/lib/server/profile";
 import { activeRoom } from "@/lib/server/rooms";
+import { pageMetadata } from "@/lib/site";
 import VersusHome from "./VersusHome";
 
-export const metadata: Metadata = { title: "Versus", description: "Race two to five friends on the same five campus photos." };
+export const metadata = pageMetadata({
+  title: "Versus",
+  shareTitle: "Play BruinGuessr versus",
+  description: "Race two to five friends on the same five photos from around UCLA's campus, on the same clock. Closest pins win the room.",
+  path: "/versus",
+});
 
 export default function VersusPage() {
   return (
     <main className="flex flex-1 flex-col bg-night text-paper">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5">
-        <Link href="/" className="flex items-center gap-2" aria-label="BruinGuessr home">
-          <PinMark className="h-8 w-auto" />
-          <Wordmark className="text-3xl" />
-        </Link>
+      <SiteHeader>
         <Link href="/leaderboard" className="btn btn-quiet !rounded-full !px-4 !py-1.5 !text-lg">
           Leaderboard
         </Link>
-      </header>
+      </SiteHeader>
       <section className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:py-14">
         <p className="font-semibold text-sky">Two to five players</p>
         <h1 className="display mt-1 text-[clamp(3.6rem,11vw,6.5rem)]">
@@ -31,6 +33,7 @@ export default function VersusPage() {
           <Gate />
         </Suspense>
       </section>
+      <SiteFooter />
     </main>
   );
 }

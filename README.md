@@ -13,6 +13,7 @@ npm test             # unit tests
 npm run test:live    # game rules against the real database (see "Tests" below)
 npm run typecheck
 npm run lint
+npm run icons:build  # redraw the favicon and app icons (only when the mark changes)
 ```
 
 `.env.local` (not committed) holds `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `MAPILLARY_TOKEN`.
@@ -46,6 +47,14 @@ A versus game is the same game with more than one player in it: the same round c
 The numbers above (5 s, 20 s, 10 s, 2 to 5 players) are columns in the `settings` table.
 
 The visual direction is written up in `DESIGN.md`.
+
+### Link previews, icons, credits
+
+- **Link previews.** Every page sets a title, a description and a share image for chats and social apps. The images are drawn in code (`src/lib/share-image.tsx`, fonts in `assets/fonts/`). A room link (`/versus/<CODE>`) previews as "Join my BruinGuessr game" with the room code. Someone who opens a room link signed out sees the invitation and a "Sign in with Google to join" button, then lands in the room.
+- **The site's address** inside previews comes from Vercel's production domain. If the site moves to its own domain, set `NEXT_PUBLIC_SITE_URL` (for example `https://bruinguessr.com`) in Vercel.
+- **In-app browsers.** Google refuses sign in from the browsers built into Instagram, TikTok, Facebook and similar apps. The sign-in button detects them and tells the player to open the page in Safari or Chrome.
+- **Credits** (`/credits`): photographers and licenses, read from the database when the page is opened. Names and licenses only, no links to photos.
+- **Icons.** `npm run icons:build` draws `src/app/icon.svg`, `favicon.ico`, `apple-icon.png` and `public/icons/*` from one description of the mark.
 
 ### Testing without Google
 

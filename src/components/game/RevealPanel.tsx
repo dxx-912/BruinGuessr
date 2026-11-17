@@ -18,12 +18,14 @@ type Props = {
   onOpenPhoto: () => void;
   onNext: () => void;
   busy: boolean;
+  /** Lets the game screen measure the panel, so the map keeps its pins clear of it. */
+  panelRef?: React.Ref<HTMLElement>;
 };
 
 const MAX = 5000;
 
 /** The card that slides up over the map after a guess: distance, points, credit, next. */
-export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOpenPhoto, onNext, busy }: Props) {
+export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOpenPhoto, onNext, busy, panelRef }: Props) {
   const bullseye = result.guess !== null && result.score >= MAX;
   const last = result.round >= roundCount;
 
@@ -41,11 +43,12 @@ export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOp
         </p>
       )}
 
-      <section aria-live="polite" className="panel absolute inset-x-3 bottom-3 z-30 mx-auto max-w-4xl animate-rise p-4 sm:p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-          <div className="flex min-w-0 flex-1 items-center gap-4">
+      {/* Kept short on a phone, where every row here is a row of map the player cannot see. */}
+      <section ref={panelRef} aria-live="polite" className="panel absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto max-w-4xl animate-rise p-3 sm:p-5">
+        <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
             {photoUrl ? (
-              <button type="button" onClick={onOpenPhoto} aria-label="Look at the photo again" className="h-20 w-28 shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-navy-line sm:h-24 sm:w-36">
+              <button type="button" onClick={onOpenPhoto} aria-label="Look at the photo again" className="h-[4.5rem] w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-navy-line sm:h-24 sm:w-36 [@media(max-height:500px)]:hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element -- an in-memory blob */}
                 <img src={photoUrl} alt="" className="h-full w-full object-cover" />
               </button>
@@ -54,14 +57,14 @@ export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOp
               <p className="text-sm font-semibold text-sky">
                 Round {result.round} of {roundCount} · {roundVerdict(result.score, result.guess !== null)}
               </p>
-              <p className="display mt-1 flex items-baseline gap-2 text-5xl text-ucla-gold sm:text-6xl">
+              <p className="display mt-0.5 flex items-baseline gap-2 text-[2.6rem] text-ucla-gold sm:mt-1 sm:text-6xl">
                 <CountUp value={result.score} delayMs={450} />
-                <span className="text-2xl text-paper">points</span>
+                <span className="text-xl text-paper sm:text-2xl">points</span>
               </p>
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-night" role="img" aria-label={`${result.score} of ${MAX} points`}>
+              <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-night sm:mt-2 sm:h-3 [@media(max-height:500px)]:hidden" role="img" aria-label={`${result.score} of ${MAX} points`}>
                 <div className="h-full origin-left animate-fill rounded-full bg-ucla-gold" style={{ transform: `scaleX(${result.score / MAX})` }} />
               </div>
-              <p className="mt-2 font-semibold">
+              <p className="mt-1.5 font-semibold leading-tight sm:mt-2">
                 {result.guess && result.distanceM !== null ? (
                   <>
                     {formatDistance(result.distanceM)} away <span className="font-medium text-sky">({formatImperial(result.distanceM)})</span>
@@ -72,11 +75,11 @@ export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOp
               </p>
             </div>
           </div>
-          <button type="button" className="btn btn-gold md:self-center" onClick={onNext} disabled={busy} autoFocus>
+          <button type="button" className="btn btn-gold max-md:!py-3.5 md:self-center" onClick={onNext} disabled={busy} autoFocus>
             {busy ? "Loading…" : last ? "See your results" : "Next round"}
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t-2 border-navy-line pt-3">
+        <div className="mt-2.5 flex items-center justify-between gap-3 border-t-2 border-navy-line pt-2.5 sm:mt-3 sm:pt-3">
           <PhotoCredit credit={result.credit} />
           <ReportButton gameId={gameId} round={result.round} alreadyReported={result.reported} />
         </div>

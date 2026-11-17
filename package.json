@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "campus:build": "tsx scripts/build-campus.ts",
+    "icons:build": "tsx scripts/build-icons.ts",
     "campus:probe": "tsx --env-file=.env.local scripts/probe-coverage.ts",
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",

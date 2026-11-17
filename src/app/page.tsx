@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AccountChip, PlayArea } from "@/components/home/Account";
 import CampusHero from "@/components/home/CampusHero";
+import SiteFooter from "@/components/SiteFooter";
 import Wordmark, { PinMark } from "@/components/Wordmark";
 
 const STEPS = [
@@ -80,11 +81,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
         </ol>
       </section>
 
-      <footer className="mx-auto w-full max-w-6xl px-5 py-6 text-sm text-sky">
-        <p>
-          BruinGuessr is a student project. It is not affiliated with or endorsed by UCLA. Photos by Mapillary and Wikimedia Commons contributors. Map data ©
-          OpenStreetMap contributors, map tiles by OpenFreeMap.
-        </p>
+      <SiteFooter>
         {isDev && (
           <p className="mt-2">
             Development:{" "}
@@ -101,7 +98,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
             </a>
           </p>
         )}
-      </footer>
+      </SiteFooter>
     </main>
   );
 }

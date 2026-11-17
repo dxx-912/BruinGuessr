@@ -26,6 +26,8 @@
   --animate-drop: drop 0.9s cubic-bezier(0.3, 1.5, 0.5, 1) both;
   /* The points bar filling from empty, in step with the count-up beside it. */
   --animate-fill: fill 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) 0.45s both;
+  /* The pin on the loading mark. */
+  --animate-hop: hop 0.9s cubic-bezier(0.3, 0, 0.3, 1) infinite;
 }
 
 @keyframes pop {
@@ -52,6 +54,10 @@
 @keyframes fill {
   from { transform: scaleX(0); }
 }
+@keyframes hop {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-13px); }
+}
 @keyframes drop {
   from { opacity: 0; transform: translateY(-70px); }
   to { opacity: 1; transform: translateY(0); }
@@ -60,12 +66,46 @@
 html {
   background: var(--color-night);
   color-scheme: dark;
+  /* Phones: no grey flash on tap (buttons have their own pressed look), and no text resizing in landscape. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   font-family: var(--font-sans);
   font-weight: 500;
   color: var(--color-paper);
+  /* The page reaches under a phone's notch (see `viewportFit` in layout.tsx); in landscape this keeps content out from under it. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* A double tap on a control is two taps, not a zoom. */
+a,
+button,
+input,
+label {
+  touch-action: manipulation;
+}
+
+/*
+ * The game fills the screen and never scrolls. Without this, dragging down on a
+ * phone pulls the page to refresh it (and with it the round), and dragging at
+ * the edges makes the whole screen rubber-band.
+ */
+html:has(main[data-game]) {
+  overscroll-behavior: none;
+}
+main[data-game] {
+  /* Keep clear of the notch in landscape; the bottom edge is handled where the buttons are. */
+  left: env(safe-area-inset-left);
+  right: env(safe-area-inset-right);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Holding a finger on the photo should not offer to save or share it. */
+  -webkit-touch-callout: none;
 }
 
 @layer components {
@@ -182,10 +222,31 @@ body {
 }
 
 /* The map's own controls, restyled to sit on the navy panels. */
+/* The "turn your phone upright" card: only on a touch screen lying on its side. */
+.turn-upright {
+  display: none;
+}
+@media (orientation: landscape) and (max-height: 480px) and (pointer: coarse) {
+  .turn-upright {
+    display: grid;
+  }
+}
+
 .game-map .maplibregl-ctrl-group {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 0 rgb(2 10 20 / 0.35);
+}
+/* Fingers need bigger zoom buttons than a mouse does. */
+@media (pointer: coarse) {
+  .game-map .maplibregl-ctrl-group button {
+    width: 40px;
+    height: 40px;
+  }
+}
+/* On the reveal the map fills the screen and the game's top bar lies over its corner. */
+.game-map[data-kind="reveal"] .maplibregl-ctrl-top-left {
+  margin-top: 4.5rem;
 }
 .game-map .maplibregl-ctrl-attrib {
   font-family: var(--font-sans);

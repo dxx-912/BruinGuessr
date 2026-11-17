@@ -6,6 +6,9 @@ type Props = {
   /** An in-memory copy of the round's photo, or null while it is still downloading. */
   src: string | null;
   alt: string;
+  /** True when the download failed and gave up. `onRetry` tries it again. */
+  failed?: boolean;
+  onRetry?: () => void;
 };
 
 type View = { scale: number; x: number; y: number };
@@ -17,7 +20,7 @@ const MAX_SCALE = 5;
  * The round's photo, shown whole (never cropped) over a blurred copy of itself.
  * Scroll or pinch to zoom, drag to move around, double-click to zoom in and out.
  */
-export default function PhotoViewer({ src, alt }: Props) {
+export default function PhotoViewer({ src, alt, failed = false, onRetry }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>(REST);
   const [dragging, setDragging] = useState(false);
@@ -125,8 +128,18 @@ export default function PhotoViewer({ src, alt }: Props) {
             }}
           />
         </>
+      ) : failed ? (
+        <div className="absolute inset-0 grid place-content-center justify-items-center gap-3 px-6 pt-16 text-center" onPointerDown={(ev) => ev.stopPropagation()}>
+          <p className="text-lg font-semibold text-paper">The photo could not load.</p>
+          <p className="text-sm text-sky">Check your connection. The clock is still running.</p>
+          {onRetry && (
+            <button type="button" className="btn btn-blue" onClick={onRetry}>
+              Try again
+            </button>
+          )}
+        </div>
       ) : (
-        <p className="absolute inset-0 grid place-items-center text-lg font-semibold text-sky">Loading the photo…</p>
+        <p className="absolute inset-0 grid place-items-center pt-16 text-lg font-semibold text-sky">Loading the photo…</p>
       )}
 
       {src && (

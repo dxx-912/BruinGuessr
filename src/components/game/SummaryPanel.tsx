@@ -38,10 +38,10 @@ function StandingLine({ gameId }: { gameId: string }) {
   }, [gameId]);
 
   const you = standing?.you;
-  if (!you) return <div className="mt-3 h-7" />;
+  if (!you) return <div className="mt-1.5 h-7 md:mt-3" />;
   const best = you.gameId === gameId;
   return (
-    <p className="mt-3 flex min-h-7 animate-rise flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
+    <p className="mt-1.5 flex min-h-7 animate-rise flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold md:mt-3">
       {best ? (
         <span className="display rounded-full bg-ucla-gold px-3 py-0.5 text-lg text-night">New personal best</span>
       ) : (
@@ -106,14 +106,16 @@ export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhot
       : `${ordinal(rank)} of ${totals.length} in the room`;
   const canRematch = versus?.rematch.state === "open";
   return (
-    <section className="absolute inset-x-0 bottom-0 z-30 flex h-[60%] animate-rise flex-col border-t-2 border-navy-line bg-navy md:inset-y-0 md:left-auto md:right-0 md:h-auto md:w-[28rem] md:border-l-2 md:border-t-0">
-      <div className={`border-b-2 border-navy-line px-5 ${versus ? "pb-3 pt-4 md:pb-4 md:pt-5" : "pb-4 pt-5"}`}>
+    <section className="absolute inset-x-0 bottom-0 z-30 flex h-[64%] animate-rise flex-col border-t-2 border-navy-line bg-navy md:inset-y-0 md:left-auto md:right-0 md:h-auto md:w-[28rem] md:border-l-2 md:border-t-0">
+      {/* On a phone the rounds below need the room, so the total sits on one line with its "out of". */}
+      <div className="border-b-2 border-navy-line px-4 pb-2 pt-3 md:px-5 md:pb-4 md:pt-5">
         <p className="text-sm font-semibold text-sky">{verdict}</p>
-        {/* On a phone a versus summary also has to fit the standings, so the total is smaller there. */}
-        <h1 className={`display mt-1 text-ucla-gold md:text-7xl ${versus ? "text-5xl" : "text-6xl"}`}>
-          <CountUp value={state.totalScore} durationMs={1400} />
-        </h1>
-        <p className="mt-1 font-semibold text-sky">out of {formatPoints(max)} points</p>
+        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 md:mt-1 md:block">
+          <h1 className="display text-5xl text-ucla-gold md:text-7xl">
+            <CountUp value={state.totalScore} durationMs={1400} />
+          </h1>
+          <p className="font-semibold text-sky md:mt-1">out of {formatPoints(max)} points</p>
+        </div>
         {state.status === "completed" && <StandingLine gameId={state.id} />}
       </div>
 
@@ -126,14 +128,14 @@ export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhot
             return (
               <li key={r.round}>
                 <div
-                  className={`flex items-center gap-3 rounded-xl px-2 py-2 ${focus === r.round ? "bg-navy-line" : ""}`}
+                  className={`flex items-center gap-3 rounded-xl px-2 py-1.5 md:py-2 ${focus === r.round ? "bg-navy-line" : ""}`}
                   onMouseEnter={() => onFocus(r.round)}
                 >
                   <button
                     type="button"
                     onClick={() => (photo ? onOpenPhoto(r.round) : onFocus(focus === r.round ? null : r.round))}
                     aria-label={photo ? `Look at the photo from round ${r.round}` : `Show round ${r.round} on the map`}
-                    className={`display grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-lg border-2 border-navy-line bg-night text-2xl text-sky ${photo ? "cursor-zoom-in" : "cursor-pointer"}`}
+                    className={`display grid h-12 w-[4.5rem] shrink-0 place-items-center md:h-14 md:w-20 overflow-hidden rounded-lg border-2 border-navy-line bg-night text-2xl text-sky ${photo ? "cursor-zoom-in" : "cursor-pointer"}`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- an in-memory blob */}
                     {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : r.round}
@@ -152,7 +154,7 @@ export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhot
         </ol>
       </div>
 
-      <div className="border-t-2 border-navy-line px-5 pb-4 pt-3">
+      <div className="border-t-2 border-navy-line px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 md:px-5 md:pb-4 md:pt-3">
         {versus && <p className="mb-2.5 text-sm font-semibold text-sky">{rematchNote(versus)}</p>}
         <div className="flex items-center gap-3">
           <button type="button" className="btn btn-gold flex-1" onClick={onPlayAgain} disabled={busy} autoFocus>

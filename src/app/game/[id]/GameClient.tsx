@@ -12,6 +12,7 @@ import Timer from "@/components/game/Timer";
 import PlayerStrip from "@/components/versus/PlayerStrip";
 import { SeatBadge } from "@/components/versus/SeatBadge";
 import VersusRevealPanel from "@/components/versus/VersusRevealPanel";
+import LoadingMark from "@/components/LoadingMark";
 import Wordmark, { PinMark } from "@/components/Wordmark";
 import { api, ApiError, mergeState, serverClock } from "@/lib/game/api";
 import { sound } from "@/lib/game/sound";
@@ -44,10 +45,32 @@ function useMedia(query: string): boolean {
   return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches, () => true);
 }
 
+/** The height of a panel as it is on screen, so the map can keep its pins clear of it. */
+function useMeasuredHeight(): [(el: HTMLElement | null) => void, number | null] {
+  const [height, setHeight] = useState<number | null>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: HTMLElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!el) {
+      setHeight(null);
+      return;
+    }
+    observer.current = new ResizeObserver(() => setHeight(Math.round(el.getBoundingClientRect().height)));
+    observer.current.observe(el);
+  }, []);
+  return [ref, height];
+}
+
+/** How many times a round's photo is asked for before the screen says it could not load. */
+const PHOTO_ATTEMPTS = 3;
+
 export default function GameClient({ gameId }: { gameId: string }) {
   const router = useRouter();
   const desktop = useMedia("(min-width: 768px)");
   const wide = useMedia("(min-width: 1024px)");
+  /** A mouse can point at the map to enlarge it. A finger gets a button for that instead. */
+  const canHover = useMedia("(hover: hover) and (pointer: fine)");
 
   const [state, setState] = useState<GameState | null>(null);
   const [fatal, setFatal] = useState<"not_found" | "failed" | null>(null);
@@ -62,6 +85,11 @@ export default function GameClient({ gameId }: { gameId: string }) {
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [muted, setMuted] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  /** The round whose photo could not be downloaded, and how many times the player asked again. */
+  const [photoFailed, setPhotoFailed] = useState<number | null>(null);
+  const [photoRetry, setPhotoRetry] = useState(0);
+  const [panelRef, panelHeight] = useMeasuredHeight();
 
   const pinSaves = useRef<Promise<unknown>>(Promise.resolve());
   const photoUrls = useRef<string[]>([]);
@@ -145,6 +173,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
       setPhotos({});
       setBusy(false);
       setLightbox(null);
+      setConfirmLeave(false);
       leaving.current = false;
     };
   }, []);
@@ -215,19 +244,6 @@ export default function GameClient({ gameId }: { gameId: string }) {
       }
     });
 
-    api
-      .photo(gameId, roundNumber)
-      .then((blob) => {
-        if (cancelled) return;
-        const url = URL.createObjectURL(blob);
-        photoUrls.current.push(url);
-        setPhotos((current) => ({ ...current, [roundNumber]: url }));
-      })
-      .catch(() => {
-        // The round ended before the photo arrived, or the connection dropped. The
-        // clock still decides when the round is over, so there is nothing to do here.
-      });
-
     return () => {
       cancelled = true;
       timers.forEach((id) => window.clearTimeout(id));
@@ -235,6 +251,34 @@ export default function GameClient({ gameId }: { gameId: string }) {
     // savedPin and savedLock are read once when the round opens; later saves must not restart the round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, roundNumber, startsAt, deadlineAt, graceMs, refresh]);
+
+  // The round's photo. A dropped connection gets a few quiet retries; after that the screen
+  // says so and offers "Try again". The clock decides when the round is over either way.
+  useEffect(() => {
+    if (roundNumber === null) return;
+    let cancelled = false;
+    (async () => {
+      for (let attempt = 1; attempt <= PHOTO_ATTEMPTS && !cancelled; attempt++) {
+        try {
+          const blob = await api.photo(gameId, roundNumber);
+          if (cancelled) return;
+          const url = URL.createObjectURL(blob);
+          photoUrls.current.push(url);
+          setPhotos((current) => ({ ...current, [roundNumber]: url }));
+          setPhotoFailed((current) => (current === roundNumber ? null : current));
+          return;
+        } catch (err) {
+          // The round has ended: its photo address is closed for good, so asking again is pointless.
+          if (err instanceof ApiError && err.code === "round_closed") return;
+          if (attempt < PHOTO_ATTEMPTS) await new Promise((resolve) => window.setTimeout(resolve, 700 * attempt));
+        }
+      }
+      if (!cancelled) setPhotoFailed(roundNumber);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, roundNumber, photoRetry]);
 
   const placePin = useCallback(
     (next: LatLng) => {
@@ -336,6 +380,23 @@ export default function GameClient({ gameId }: { gameId: string }) {
     router.push("/");
   }, [roomCode, router]);
 
+  /** The mark at top left. Mid-game it asks first: on a phone it is easy to touch by accident. */
+  const active = state?.status === "active";
+  const goHome = useCallback(() => {
+    if (isVersus) void leave();
+    else router.push("/");
+  }, [isVersus, leave, router]);
+  const askToLeave = useCallback(() => {
+    if (active) setConfirmLeave(true);
+    else goHome();
+  }, [active, goHome]);
+  useEffect(() => {
+    if (!confirmLeave) return;
+    const onKey = (ev: KeyboardEvent) => ev.key === "Escape" && setConfirmLeave(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmLeave]);
+
   const rematch = useCallback(() => {
     setBusy(true);
     // The room page joins the lobby, or explains why it can't.
@@ -355,7 +416,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
 
   // Space or Enter: guess while playing.
   useEffect(() => {
-    if (phase !== "guessing" || stage !== "play" || !pin) return;
+    if (phase !== "guessing" || stage !== "play" || !pin || confirmLeave) return;
     const onKey = (ev: KeyboardEvent) => {
       const target = ev.target as HTMLElement | null;
       if ((ev.key === " " || ev.key === "Enter") && !target?.closest("button, a, input")) {
@@ -365,7 +426,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, stage, pin, guess]);
+  }, [phase, stage, pin, guess, confirmLeave]);
 
   // ---- What to draw -------------------------------------------------------------------
   const reveal = state && !round && !showSummary && state.currentRound > 0 ? (state.results.find((r) => r.round === state.currentRound) ?? null) : null;
@@ -401,10 +462,13 @@ export default function GameClient({ gameId }: { gameId: string }) {
   const playerCount = versus?.players.length ?? 0;
   const mapInset = useMemo(() => {
     if (!revealOnMap) return undefined;
-    // A versus reveal also holds the scoreboard, one row per player.
-    if (playerCount) return wide ? { top: 60, bottom: 180 + 34 * playerCount } : { top: 50, bottom: 300 + 34 * playerCount };
-    return desktop ? { top: 60, bottom: 230 } : { top: 50, bottom: 330 };
-  }, [revealOnMap, desktop, wide, playerCount]);
+    // On a phone the top bar is as tall as a pin, so the camera stays further below it.
+    const top = desktop ? 60 : 96;
+    // The panel sits 12 px above the bottom edge. Until it has been measured, a close guess:
+    // a versus reveal also holds the scoreboard, one row per player.
+    const guess = playerCount ? (wide ? 180 + 34 * playerCount : 250 + 30 * playerCount) : desktop ? 230 : 270;
+    return { top, bottom: panelHeight === null ? guess : panelHeight + 20 };
+  }, [revealOnMap, desktop, wide, playerCount, panelHeight]);
 
   if (fatal || phase === "abandoned") {
     const abandoned = phase === "abandoned";
@@ -442,11 +506,12 @@ export default function GameClient({ gameId }: { gameId: string }) {
 
   // The map dock: a small panel during a round (large when pointed at), the whole screen afterwards.
   const dock = summary
-    ? "absolute inset-x-0 top-0 h-[40%] md:inset-y-0 md:left-0 md:right-[28rem] md:h-auto"
+    ? "absolute inset-x-0 top-0 h-[36%] md:inset-y-0 md:left-0 md:right-[28rem] md:h-auto"
     : reveal
       ? "absolute inset-0"
-      : `absolute inset-x-0 bottom-0 flex h-1/2 flex-col gap-2 bg-night p-2 md:inset-auto md:bottom-4 md:right-4 md:bg-transparent md:p-0 md:transition-[width,height] md:duration-150 ${
-          mapOpen ? "md:h-[min(64vh,640px)] md:w-[min(58vw,860px)]" : "md:h-[300px] md:w-[400px]"
+      : // On a phone the map is the lower part of the screen, and its corner button gives it most of the screen.
+        `absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-night p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] transition-[height] duration-200 md:inset-auto md:bottom-4 md:right-4 md:bg-transparent md:p-0 md:transition-[width,height] md:duration-150 ${
+          mapOpen ? "h-[74%] md:h-[min(64vh,640px)] md:w-[min(58vw,860px)]" : "h-[54%] md:h-[min(300px,60vh)] md:w-[400px]"
         }`;
   const photoUrl = roundNumber !== null ? photos[roundNumber] : undefined;
   const canGuess = stage === "play" && pin !== null;
@@ -463,22 +528,23 @@ export default function GameClient({ gameId }: { gameId: string }) {
           : pin
             ? "Guess"
             : "Place your pin on the map";
-  const homeMark = (
-    <>
-      {/* On a phone the timer needs the middle of the bar, so only the pin shows. */}
-      <PinMark className="ml-0.5 h-7 w-auto sm:hidden" />
-      <span className="hidden sm:inline">
-        <Wordmark className="text-2xl" />
-      </span>
-    </>
-  );
+  const photoIsDown = roundNumber !== null && photoFailed === roundNumber && !photoUrl;
 
   return (
     <Shell>
       {/* The photo. Under everything else; only mounted while it is the thing to look at. */}
       {guessing && (
-        <div className="absolute inset-x-0 top-0 h-1/2 md:inset-0 md:h-auto">
-          <PhotoViewer key={roundNumber} src={photoUrl ?? null} alt={`Round ${roundNumber}: a photo taken somewhere on campus`} />
+        <div className={`absolute inset-x-0 top-0 transition-[height] duration-200 md:inset-0 md:h-auto ${mapOpen ? "h-[26%]" : "h-[46%]"}`}>
+          <PhotoViewer
+            key={roundNumber}
+            src={photoUrl ?? null}
+            alt={`Round ${roundNumber}: a photo taken somewhere on campus`}
+            failed={photoIsDown}
+            onRetry={() => {
+              setPhotoFailed(null);
+              setPhotoRetry((n) => n + 1);
+            }}
+          />
         </div>
       )}
 
@@ -486,26 +552,42 @@ export default function GameClient({ gameId }: { gameId: string }) {
       {state && (
         <div
           className={`z-20 ${dock}`}
+          // With a mouse, pointing at the map enlarges it. A touch screen also reports these
+          // events on every tap, which would resize the map under the finger, so it is left out.
           onMouseEnter={() => {
+            if (!canHover) return;
             window.clearTimeout(collapseTimer.current);
             if (guessing) setMapOpen(true);
           }}
           // The pointer may already be resting here when a round starts, so moving it counts too.
           onMouseMove={() => {
-            if (guessing && !mapOpen) {
+            if (canHover && guessing && !mapOpen) {
               window.clearTimeout(collapseTimer.current);
               setMapOpen(true);
             }
           }}
           onMouseLeave={() => {
-            collapseTimer.current = window.setTimeout(() => setMapOpen(false), 450);
+            if (canHover) collapseTimer.current = window.setTimeout(() => setMapOpen(false), 450);
           }}
         >
-          <div className={`min-h-0 flex-1 overflow-hidden ${guessing || phase === "ready" ? "rounded-2xl border-2 border-navy-line shadow-[0_10px_28px_rgb(2_10_20/0.5)]" : "h-full"}`}>
+          <div className={`relative min-h-0 flex-1 overflow-hidden ${guessing || phase === "ready" ? "rounded-2xl border-2 border-navy-line shadow-[0_10px_28px_rgb(2_10_20/0.5)]" : "h-full"}`}>
             <GameMap view={mapView} onPin={placePin} inset={mapInset} />
+            {guessing && !canHover && (
+              <button
+                type="button"
+                aria-pressed={mapOpen}
+                aria-label={mapOpen ? "Make the map smaller" : "Make the map bigger"}
+                className="absolute right-2 top-2 z-10 grid h-11 w-11 cursor-pointer place-items-center rounded-xl border-2 border-navy-line bg-navy text-paper shadow-[0_2px_0_rgb(2_10_20/0.35)]"
+                onClick={() => setMapOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden fill="none" stroke="currentColor" strokeWidth="2.400" strokeLinecap="round" strokeLinejoin="round">
+                  {mapOpen ? <path d="M5 3.500l5 4.500 5-4.500M5 16.500l5-4.500 5 4.500" /> : <path d="M5 8l5-4.500L15 8M5 12l5 4.500 5-4.500" />}
+                </svg>
+              </button>
+            )}
           </div>
           {guessing && (
-            <button type="button" className="btn btn-gold w-full" disabled={!canGuess} onClick={guess}>
+            <button type="button" className="btn btn-gold w-full max-md:!py-3.5" disabled={!canGuess} onClick={guess}>
               {guessLabel}
             </button>
           )}
@@ -515,23 +597,27 @@ export default function GameClient({ gameId }: { gameId: string }) {
       {/* Top bar */}
       {!summary && (
         <header className="pointer-events-none absolute inset-x-3 top-3 z-30 flex items-start justify-between gap-2">
-          <div className="panel pointer-events-auto flex items-center gap-1 !rounded-2xl py-1.5 pl-3 pr-1.5">
-            {isVersus ? (
-              // Leaving a versus game tells the room, so nobody waits for this player.
-              <button type="button" className="cursor-pointer" onClick={leave} aria-label="Leave the game and go home" title="Leave the game">
-                {homeMark}
-              </button>
-            ) : (
-              <Link href="/" aria-label="Leave the game and go home" title="Leave the game">
-                {homeMark}
-              </Link>
-            )}
+          <div className="panel pointer-events-auto flex items-center !rounded-2xl p-1 sm:gap-1 sm:py-1.5 sm:pl-3 sm:pr-1.5">
+            {/* Leaving a versus game tells the room, so nobody waits for this player. Mid-game, either mode asks first. */}
+            <button
+              type="button"
+              className="grid h-11 min-w-11 cursor-pointer place-items-center rounded-xl hover:bg-navy-line max-[359px]:min-w-9 sm:h-auto sm:min-w-0 sm:hover:bg-transparent"
+              onClick={askToLeave}
+              aria-label="Leave the game and go home"
+              title="Leave the game"
+            >
+              {/* On a phone the timer needs the middle of the bar, so only the pin shows. */}
+              <PinMark className="h-7 w-auto sm:hidden" />
+              <span className="hidden sm:inline">
+                <Wordmark className="text-2xl" />
+              </span>
+            </button>
             <button
               type="button"
               aria-pressed={muted}
               aria-label={muted ? "Turn sound on" : "Turn sound off"}
               title={muted ? "Sound is off" : "Sound is on"}
-              className="ml-1 grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-sky hover:bg-navy-line hover:text-paper"
+              className="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-sky hover:bg-navy-line hover:text-paper max-[359px]:w-9 sm:ml-1 sm:h-8 sm:w-8 sm:rounded-lg"
               onClick={() => {
                 sound.setMuted(!muted);
                 setMuted(!muted);
@@ -563,7 +649,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
 
       {/* Versus: who is playing, and who has guessed */}
       {guessing && versus && (
-        <div className="pointer-events-none absolute left-3 top-[4.4rem] z-30">
+        <div className="pointer-events-none absolute left-3 top-[4.75rem] z-30 sm:top-[4.4rem]">
           <PlayerStrip players={versus.players} />
         </div>
       )}
@@ -588,7 +674,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
               )}
             </div>
           ) : (
-            <p className="display animate-pulse text-3xl text-sky">Setting up your game…</p>
+            <LoadingMark label="Setting up your game…" />
           )}
         </div>
       )}
@@ -611,6 +697,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
           onOpenPhoto={() => setLightbox(reveal.round)}
           onNext={next}
           busy={busy}
+          panelRef={panelRef}
         />
       )}
 
@@ -624,6 +711,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
           onOpenPhoto={() => setLightbox(reveal.round)}
           onNext={next}
           busy={busy}
+          panelRef={panelRef}
         />
       )}
 
@@ -647,12 +735,50 @@ export default function GameClient({ gameId }: { gameId: string }) {
       )}
 
       {lightbox !== null && photos[lightbox] && <Lightbox src={photos[lightbox]} onClose={() => setLightbox(null)} />}
+
+      {confirmLeave && (
+        <div className="absolute inset-0 z-50 grid animate-fade place-items-center bg-night/75 p-4" onClick={() => setConfirmLeave(false)}>
+          <div role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-body" className="panel w-full max-w-sm animate-pop p-6 text-center" onClick={(ev) => ev.stopPropagation()}>
+            <h2 id="leave-title" className="display text-4xl">
+              Leave this game?
+            </h2>
+            <p id="leave-body" className="mt-2 text-sky">
+              {isVersus
+                ? "Your seat is kept. Come back through the room link and you only get 0 for the rounds you missed."
+                : "The clock keeps running, and a game you do not finish does not count."}
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button type="button" className="btn btn-gold flex-1" onClick={() => setConfirmLeave(false)} autoFocus>
+                Keep playing
+              </button>
+              <button type="button" className="btn btn-blue" onClick={goHome}>
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* A phone on its side is too short for the photo, the map and the button together. */}
+      <div className="turn-upright absolute inset-0 z-[60] place-content-center justify-items-center gap-3 bg-night p-6 text-center">
+        <svg viewBox="0 0 48 48" className="h-14 w-14 text-ucla-gold" aria-hidden fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="15" y="6" width="18" height="36" rx="4" />
+          <path d="M22 36h4" />
+        </svg>
+        <p className="display text-4xl">Turn your phone upright</p>
+        <p className="max-w-xs text-sky">BruinGuessr plays in portrait on a phone. The clock keeps running.</p>
+      </div>
     </Shell>
   );
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return <main className="fixed inset-0 flex overflow-hidden bg-night text-paper">{children}</main>;
+  // `data-game` switches off page scrolling and pull-to-refresh while the game is up (globals.css).
+  return (
+    <main data-game className="fixed inset-0 flex overflow-hidden bg-night text-paper">
+      {children}
+    </main>
+  );
 }
 
 /** The round's photo, large, over everything. Click anywhere or press Escape to close. */

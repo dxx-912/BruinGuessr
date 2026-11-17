@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import LoadingMark from "@/components/LoadingMark";
 import { currentPlayer } from "@/lib/server/profile";
 import GameClient from "./GameClient";
 
@@ -8,7 +9,7 @@ export const metadata: Metadata = { title: "Game", robots: { index: false } };
 
 export default function GamePage({ params }: PageProps<"/game/[id]">) {
   return (
-    <Suspense fallback={<main className="fixed inset-0 grid place-items-center bg-night"><p className="display animate-pulse text-3xl text-sky">Loading…</p></main>}>
+    <Suspense fallback={<main className="fixed inset-0 grid place-items-center bg-night"><LoadingMark label="Loading your game…" /></main>}>
       <Game params={params} />
     </Suspense>
   );

@@ -48,7 +48,7 @@ export default function Timer({ startsAt, deadlineAt, running }: Props) {
     <div
       role="timer"
       aria-label={`${seconds} seconds left`}
-      className={`panel relative w-32 overflow-hidden !rounded-full px-5 pb-2.5 pt-1.5 text-center sm:w-36 ${urgent && running && msLeft > 0 ? "animate-beat" : ""}`}
+      className={`panel relative w-[6.5rem] overflow-hidden !rounded-full px-3 pb-2.5 pt-1.5 text-center min-[360px]:w-28 min-[390px]:w-32 sm:w-36 sm:px-5 ${urgent && running && msLeft > 0 ? "animate-beat" : ""}`}
       style={{ borderColor: urgent ? "var(--color-alarm)" : warm ? "var(--color-ucla-gold)" : undefined }}
     >
       <span className="display numeric block text-4xl sm:text-[2.6rem]" style={{ color }}>

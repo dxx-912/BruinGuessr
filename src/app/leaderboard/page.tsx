@@ -1,14 +1,19 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AccountChip } from "@/components/home/Account";
+import SiteFooter from "@/components/SiteFooter";
 import Wordmark, { PinMark } from "@/components/Wordmark";
 import { formatPoints } from "@/lib/game/format";
 import { LEADERBOARD_PAGE_SIZE, ordinal, pageOfRank, type LeaderboardRow } from "@/lib/leaderboard";
 import { currentUser } from "@/lib/server/auth";
 import { leaderboard } from "@/lib/server/profile";
+import { pageMetadata } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Leaderboard" };
+export const metadata = pageMetadata({
+  title: "Leaderboard",
+  description: "The best BruinGuessr scores out of 25,000. One row per player: their best game, solo or versus.",
+  path: "/leaderboard",
+});
 
 export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
   return (
@@ -35,6 +40,7 @@ export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboar
           <Board searchParams={searchParams} />
         </Suspense>
       </section>
+      <SiteFooter />
     </main>
   );
 }

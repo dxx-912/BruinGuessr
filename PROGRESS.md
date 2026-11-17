@@ -94,7 +94,9 @@ Read SPEC.md first, then this file.
 - "Ties go to whoever reached the score first" uses the time the game finished. In a versus game every player finishes at the same moment, so two players tied in the same versus game are ordered arbitrarily but consistently.
 - A completed game with 0 points still counts (it is a completed game).
 
-**Phase 4 (versus): built 2026-11-16, waiting for Daniel's approval. Phase 5 (polish) has not started; wait for Daniel to ask for it.**
+**Phase 4 (versus): done and approved by Daniel 2026-11-16.**
+
+**Phase 5 (polish and deploy): built 2026-11-16, waiting for Daniel's approval.** Details in "Phase 5" below.
 
 The site is live at https://ucla-geoguessr.vercel.app with Google sign in working (Daniel, 2026-11-16). **The live site and `npm run dev` use the same Supabase database.** Migrations and test data land in production the moment they are applied or created.
 
@@ -152,6 +154,38 @@ The site is live at https://ucla-geoguessr.vercel.app with Google sign in workin
 - Not built, and worth considering in polish: a host "remove player" control in the lobby; a confirm before leaving a versus game; sound when another player locks in.
 - The credits page, loading/empty/error states and a mobile pass over solo are still Phase 5.
 
+## Phase 5 (polish and deploy)
+
+What was added:
+
+- **Credits page** (`/credits`): photographers by source with their licenses, read live from the database (15 photographers today). Names and licenses only; license links go to creativecommons.org, never to a photo. Also credits OpenStreetMap, OpenFreeMap, OpenMapTiles, MapLibre and the Barlow typeface. Linked from the footer of every plain page. The map itself carries the OpenFreeMap / OpenStreetMap credit (MapLibre's attribution control), as before.
+- **Link previews**: title, description and a share image on every page. Room links read "Join my BruinGuessr game" with the room code on the image. Images are drawn in code with `next/og`; the two font files are in `assets/fonts/` (SIL Open Font License, license file alongside).
+- **Room links for signed-out visitors** now show an invitation page with the room code and "Sign in with Google to join" instead of bouncing to the home page. This is also what lets a chat app read the room's preview.
+- **Favicon and app icon**: one drawing (`npm run icons:build`), in `src/app/` and `public/icons/`, plus a web manifest.
+- **404 page** ("Off the map"), an **error page** for a page that fails to load, and a last-resort error page.
+- **Loading mark**: the campus outline with a hopping pin, on the game and room loading screens.
+- **Error states**: the round's photo retries three times, then says "The photo could not load" with "Try again"; the map offers "Reload" if it has not loaded after 20 seconds.
+- **Phone pass** (see "Decisions" and "Checks").
+
+### Decisions made in Phase 5 (say so if you want any changed)
+
+- On a phone the map gets a corner button that enlarges it to about three quarters of the screen. With a mouse the map still grows when pointed at.
+- The mark at top left now asks "Leave this game?" while a game is in progress, in solo and versus.
+- A phone held sideways shows "Turn your phone upright" over the game. Landscape play on phones is not supported.
+- The manifest says `display: browser`: a home-screen icon opens the site in the normal browser. A full-screen home-screen app was left out because Google sign in inside one could not be tried on a real phone.
+- The sign-in button warns inside Instagram, TikTok, Facebook, Snapchat, LinkedIn, WeChat and LINE's built-in browsers, where Google refuses sign in.
+- The credits page does not link to photographers' profiles either: a profile lists that person's photos with their locations.
+- No new env var is needed. `NEXT_PUBLIC_SITE_URL` is optional, for a custom domain later.
+
+### Checks run at the end of Phase 5
+
+- `npm test` (107 passed, 6 new: credits grouping, license links, in-app browser detection), `npm run test:live` (60 passed, with `npm run dev` running), type-check, lint, production build.
+- Production build, run locally: every page answers 200 and an unknown address answers 404 with the "Off the map" page; dev routes still 404; favicon, Apple icon, manifest and the three share images are served; the font files are in the share-image functions' file lists; no secret and no "localhost" in the browser files. Fetched as a chat app would (Facebook's and Messages' fetchers) and as a plain browser, a room link gives "Join my BruinGuessr game", the room's description and the room's image in the page head, with status 200 while signed out.
+- Phone pass, headless Chrome with touch emulation, a full five-round solo game at each of 375 × 548 (iPhone SE with Safari's bars), 360 × 612 (small Android), 390 × 664 (iPhone 12 to 16), 430 × 746 (Pro Max) and 320 × 454 (the first iPhone SE). A script measured each screen: the top bar and timer do not overlap, the Guess button is on screen, a tap places the pin, the map-size button works, on the reveal no pin is under a panel, the summary's buttons are on screen. All pass from 360 wide up. A two-player versus game (lobby, round, reveal) at 375 × 548 and 360 × 612 plays through with no sideways scrolling.
+- The same solo and versus runs pass against the production build, and a five-round solo game at desktop size with a mouse (the map still grows when pointed at). No console errors anywhere.
+- **Known limits.** On the first iPhone SE (320 × 454) the reveal leaves only a thin strip of map. On the smallest current phone, a versus reveal with pins far apart can leave a pin partly under a panel: the map cannot zoom out past the campus.
+- **Not tested by me:** a real phone. Everything above is Chrome's phone emulation. Safari's own behaviour (the notch and home-bar spacing, the hold-to-save menu, pull to refresh) is written to the documented rules but unverified, and so is the Instagram in-app browser warning and how each chat app draws the preview.
+
 ### Coverage (153 inside-campus photos; the 7 buffer photos are not in this grid, 7 × 7 grid, north up, `·` is outside campus)
 
 ```
@@ -192,6 +226,7 @@ The site is live at https://ucla-geoguessr.vercel.app with Google sign in workin
 - Looking at pages: the Claude in Chrome extension did not respond in this session. What worked was driving the installed Chrome headlessly with `puppeteer-core` (flags `--enable-unsafe-swiftshader --use-angle=swiftshader`), waiting for `.maplibregl-canvas`, then screenshotting. That is how both review pages were verified, including dragging a pin.
 - Overpass API mirrors were flaky; the boundary build uses the main OSM API by object ID instead, with downloads cached in `.cache/osm/`.
 - Mapillary: `on_foot` and `quality_score` are real API fields. Thumbnail URLs expire, so the script asks for a fresh one right before each download.
+- Phase 5 tooling: after many files were added or `globals.css` was edited several times, `next dev` got stuck twice: once reloading every page in a loop, once serving an old stylesheet. Stopping it, deleting `.next/dev` and starting again fixed both. Phone testing used headless Chrome with touch emulation at the size a page really gets with the browser's bars showing (for example 375 × 548 for an iPhone SE, not 375 × 667).
 - Supabase: `supabase db push --yes` works without the database password (login role). Docker is not installed, so there is no local Supabase; migrations go straight to the real project.
 
 ### Phase 1 decisions

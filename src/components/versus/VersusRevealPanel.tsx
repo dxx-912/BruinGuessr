@@ -23,6 +23,8 @@ type Props = {
   onOpenPhoto: () => void;
   onNext: () => void;
   busy: boolean;
+  /** Lets the game screen measure the panel, so the map keeps its pins clear of it. */
+  panelRef?: React.Ref<HTMLElement>;
 };
 
 const MAX = 5000;
@@ -48,7 +50,7 @@ function useSecondsUntil(at: number | null): number | null {
  * with every player's distance and points for the round and their running
  * total. The map behind it shows every pin.
  */
-export default function VersusRevealPanel({ gameId, result, roundCount, versus, finished, photoUrl, onOpenPhoto, onNext, busy }: Props) {
+export default function VersusRevealPanel({ gameId, result, roundCount, versus, finished, photoUrl, onOpenPhoto, onNext, busy, panelRef }: Props) {
   const bullseye = result.guess !== null && result.score >= MAX;
   const seconds = useSecondsUntil(finished ? null : versus.nextRoundAt);
   const host = versus.players.find((p) => p.isHost);
@@ -72,12 +74,12 @@ export default function VersusRevealPanel({ gameId, result, roundCount, versus, 
         </p>
       )}
 
-      <section aria-live="polite" className="panel absolute inset-x-3 bottom-3 z-30 mx-auto max-w-5xl animate-rise p-3 sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
+      <section ref={panelRef} aria-live="polite" className="panel absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto max-w-5xl animate-rise p-3 sm:p-4">
+        <div className="flex flex-col gap-2.5 sm:gap-3 lg:flex-row lg:items-center lg:gap-5">
           {/* This player's round */}
           <div className="flex min-w-0 items-center gap-3 lg:w-80 lg:shrink-0">
             {photoUrl ? (
-              <button type="button" onClick={onOpenPhoto} aria-label="Look at the photo again" className="h-16 w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-navy-line lg:h-24 lg:w-32">
+              <button type="button" onClick={onOpenPhoto} aria-label="Look at the photo again" className="h-14 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-navy-line sm:h-16 sm:w-24 lg:h-24 lg:w-32">
                 {/* eslint-disable-next-line @next/next/no-img-element -- an in-memory blob */}
                 <img src={photoUrl} alt="" className="h-full w-full object-cover" />
               </button>
@@ -99,7 +101,7 @@ export default function VersusRevealPanel({ gameId, result, roundCount, versus, 
           {/* The scoreboard */}
           <ol aria-label="Scoreboard" className="min-w-0 flex-1 rounded-xl bg-night/60 p-1">
             {rows.map(({ player, round, rank }) => (
-              <li key={player.seat} className={`flex h-[30px] items-center gap-2 rounded-lg px-2 text-sm ${player.isYou ? "bg-navy-line" : ""} ${player.away ? "opacity-60" : ""}`}>
+              <li key={player.seat} className={`flex h-7 items-center gap-2 rounded-lg px-2 text-sm sm:h-[30px] ${player.isYou ? "bg-navy-line" : ""} ${player.away ? "opacity-60" : ""}`}>
                 <span className="display numeric w-4 text-center text-lg text-sky">{rank}</span>
                 <SeatBadge seat={player.seat} name={player.username} className="h-6 w-6 text-sm" />
                 <span className="min-w-0 flex-1 truncate font-semibold">
@@ -116,12 +118,12 @@ export default function VersusRevealPanel({ gameId, result, roundCount, versus, 
           {/* What happens next */}
           <div className="flex items-center gap-3 lg:w-48 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-1.5">
             {finished ? (
-              <button type="button" className="btn btn-gold flex-1" onClick={onNext} autoFocus>
+              <button type="button" className="btn btn-gold flex-1 max-md:!py-3" onClick={onNext} autoFocus>
                 Final standings
               </button>
             ) : versus.isHost ? (
               <>
-                <button type="button" className="btn btn-gold flex-1" onClick={onNext} disabled={busy} autoFocus>
+                <button type="button" className="btn btn-gold flex-1 max-md:!py-3" onClick={onNext} disabled={busy} autoFocus>
                   {busy ? "Loading…" : "Next round"}
                 </button>
                 {seconds !== null && <p className="numeric whitespace-nowrap text-center text-xs font-semibold text-sky">or in {seconds} s</p>}
@@ -134,7 +136,7 @@ export default function VersusRevealPanel({ gameId, result, roundCount, versus, 
             )}
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t-2 border-navy-line pt-2.5">
+        <div className="mt-2.5 flex items-center justify-between gap-3 border-t-2 border-navy-line pt-2.5 sm:mt-3">
           <PhotoCredit credit={result.credit} />
           <ReportButton gameId={gameId} round={result.round} alreadyReported={result.reported} />
         </div>

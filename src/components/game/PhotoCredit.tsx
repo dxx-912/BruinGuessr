@@ -11,7 +11,7 @@ export default function PhotoCredit({ credit }: { credit: Credit }) {
     credit.license
   );
   return (
-    <p className="min-w-0 text-sm text-sky">
+    <p className="min-w-0 flex-1 text-sm leading-snug text-sky">
       Photo by <span className="font-semibold text-paper">{credit.photographer}</span>
       {credit.source !== "original" && <> via {sourceName(credit.source)}</>} · {license}
     </p>

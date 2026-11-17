@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import Wordmark, { PinMark } from "@/components/Wordmark";
+import SiteHeader from "@/components/SiteHeader";
 import { safeNextPath } from "@/lib/server/auth";
 import { currentPlayer } from "@/lib/server/profile";
 import { suggestUsername } from "@/lib/username";
@@ -13,12 +12,7 @@ export const metadata: Metadata = { title: "Pick a username", robots: { index: f
 export default function WelcomePage({ searchParams }: PageProps<"/welcome">) {
   return (
     <main className="flex flex-1 flex-col bg-night text-paper">
-      <header className="mx-auto flex w-full max-w-6xl items-center px-5 pt-5">
-        <Link href="/" className="flex items-center gap-2" aria-label="BruinGuessr home">
-          <PinMark className="h-8 w-auto" />
-          <Wordmark className="text-3xl" />
-        </Link>
-      </header>
+      <SiteHeader />
       <section className="mx-auto grid w-full max-w-xl flex-1 content-center px-5 py-12">
         <Suspense fallback={<div className="h-72 animate-pulse rounded-[20px] bg-navy" />}>
           <Welcome searchParams={searchParams} />
