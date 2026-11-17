@@ -11,8 +11,7 @@ const ITEMS: Item[] = [
   {
     href: "/",
     label: "Play",
-    // /dev/hero previews the Play page (development only).
-    match: (p) => p === "/" || p.startsWith("/versus") || p.startsWith("/dev/hero"),
+    match: (p) => p === "/" || p.startsWith("/versus"),
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden {...stroke}>
         <path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21Z" />

@@ -1,9 +1,11 @@
 """Generates the campus scene: Royce Hall from the quad walkway.
 
-    python3 build-campus-scene.py out.svg            flat geometric (public/art/campus-scene.svg)
+    python3 build-campus-scene.py out.svg            flat geometric (public/art/campus-scene.svg, the page backdrops)
     python3 build-campus-scene.py out.svg <grade>    the same drawing relit: gradient sky, haze between
                                                      the depth planes, glow from the lit openings, soft
                                                      shadows, a fade into the page. Grades: blue, gold, night.
+                                                     The Play page hero is `gold` (public/art/campus-hero.svg);
+                                                     blue and night were the other options tried.
 
 The geometry is identical in every version; a grade only changes colour and light.
 """
