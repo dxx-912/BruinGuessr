@@ -11,7 +11,8 @@ const ITEMS: Item[] = [
   {
     href: "/",
     label: "Play",
-    match: (p) => p === "/" || p.startsWith("/versus"),
+    // /dev/hero previews the Play page (development only).
+    match: (p) => p === "/" || p.startsWith("/versus") || p.startsWith("/dev/hero"),
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden {...stroke}>
         <path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21Z" />
@@ -63,7 +64,11 @@ export default function NavLinks({ variant }: { variant: "side" | "tabs" }) {
   return <NavList variant={variant} path={usePathname()} />;
 }
 
-/** The links themselves. With no path (while the page streams in), none is marked as current. */
+/**
+ * The links themselves. With no path (while the page streams in), none is marked as current.
+ * Quiet by design: Barlow in sentence case, sky blue. The current page is lit: paper text, a gold
+ * icon and a gold marker (a bar on the side bar's edge, a line over the tab).
+ */
 export function NavList({ variant, path }: { variant: "side" | "tabs"; path: string | null }) {
   if (variant === "tabs") {
     return (
@@ -75,9 +80,12 @@ export function NavList({ variant, path }: { variant: "side" | "tabs"; path: str
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-xs font-semibold ${active ? "text-ucla-gold" : "text-sky hover:text-paper"}`}
+                className={`relative flex h-14 flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors ${
+                  active ? "text-paper" : "text-sky/75 hover:text-paper"
+                }`}
               >
-                <span className="h-6 w-6">{item.icon}</span>
+                {active && <span aria-hidden className="absolute inset-x-5 top-0 h-[3px] rounded-b-full bg-ucla-gold" />}
+                <span className={`h-[22px] w-[22px] ${active ? "text-ucla-gold" : ""}`}>{item.icon}</span>
                 {item.label}
               </Link>
             </li>
@@ -87,7 +95,7 @@ export function NavList({ variant, path }: { variant: "side" | "tabs"; path: str
     );
   }
   return (
-    <ul className="space-y-1.5">
+    <ul className="space-y-1">
       {ITEMS.map((item) => {
         const active = path !== null && item.match(path);
         return (
@@ -95,11 +103,12 @@ export function NavList({ variant, path }: { variant: "side" | "tabs"; path: str
             <Link
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`display flex items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-2xl ${
-                active ? "bg-ucla-gold text-night" : "text-paper hover:bg-navy-line"
+              className={`relative flex items-center gap-3 rounded-[12px] px-3.5 py-2.5 text-[1.05rem] font-semibold transition-colors ${
+                active ? "bg-ucla-blue/20 text-paper" : "text-sky hover:bg-navy-line/60 hover:text-paper"
               }`}
             >
-              <span className="h-6 w-6 shrink-0">{item.icon}</span>
+              {active && <span aria-hidden className="absolute -left-3 top-2 bottom-2 w-1 rounded-r-full bg-ucla-gold" />}
+              <span className={`h-5 w-5 shrink-0 ${active ? "text-ucla-gold" : ""}`}>{item.icon}</span>
               {item.label}
             </Link>
           </li>

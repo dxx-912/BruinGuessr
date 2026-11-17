@@ -355,6 +355,22 @@ What was added (the look is written up in DESIGN.md, which was updated first):
 5. Versus with test accounts (http://localhost:3000/api/dev/login?as=7, `?as=8` in a private window): the new seat colours, green / orange / red health, slate for players who are out.
 6. To change the illustration: edit `scripts/build-campus-scene.py`, run `npm run art:build`.
 
+## Play page hero rework (2026-11-17, waiting for Daniel's pick)
+
+Daniel's brief: the Play hero felt flat (no depth or light; art colliding with the interface; empty tile slabs; one display style everywhere and a loud nav; too many saturated colours). Three variants to compare, the live Play page left alone until he picks; the type and nav fix applied site-wide now.
+
+- **Compare:** `npm run dev`, then http://localhost:3000/dev/hero. Desktop 1280 / Phone 390 switch, all three side by side or one at a time; "Open" shows a variant on its own (`/dev/hero/a`, `/b`, `/c`, inside the real site layout). Development only (404 in production, checked).
+  - **A · Blue hour:** centred panorama, cool grade with gold only where light is, the headline in a darkened patch of clear sky, the scene fading out before two navy cards (big lit icon, sentence, gold / blue button). Feature chips go monochrome.
+  - **B · Through the arch:** golden-hour Royce inside a round-headed portal (stone surround, shadow in the reveal, warm light spilling out, bottom dissolving). The art is contained, so nothing collides. Solid gold and blue tiles, glazed like enamel pins, with a big icon, a faint oversized icon in the corner and an arrow button. Features become numbered steps on a hairline.
+  - **C · Night game:** floodlit Royce with two beams. Wide screens: the scene bleeds off the right and dissolves behind a left column (headline, then one dock with both modes as rows). Phones: the scene sits between the text and the dock. Features are one panel with gold line icons.
+  - All three: the copy is unchanged; the tiles gain a call to action ("Play now", "Host or join"); the gold pin is gone from the art (it poked out from behind the tiles), and the fountain sits clear of the tiles.
+- **Art:** `scripts/build-campus-scene.py` takes an optional grade (`blue`, `gold`, `night`) and writes the relit scenes to `public/art/hero/` (see DESIGN.md "Illustration"). `npm run art:build` builds all four. The flat `campus-scene.svg`, still used by every other page's backdrop, is byte-for-byte unchanged (checked with `cmp`).
+- **Site-wide type and nav (done, live):** a new upright `.heading` style for section and card titles; buttons upright and tracked; the slanted display type kept for the headline, page titles, scores and stamps. The nav is Barlow in sentence case, quiet `sky`, with a lit current page (gold icon, gold edge bar or tab line). "Log in" is plain text. Barlow Condensed upright 700 is now loaded. DESIGN.md "Type" and "Site layout" are updated.
+- **Code:** the variants are in `src/components/home/hero/` (shared copy, tiles, three heroes); their CSS is the `hero-*` block in `globals.css`. CSS Modules do not work in this project (the Turbopack rule in `next.config.ts` sends every `*.css` file through Tailwind as global CSS), so use global classes or Tailwind. `useSoloStart` was pulled out of the Solo tile so the variants share its start logic. The nav treats `/dev/hero` as the Play page so the previews show the active state.
+- **Once Daniel picks:** move that hero into `src/app/(site)/page.tsx`, delete the other two, the `/dev/hero` pages and the unused `hero-*` classes and grades, and update DESIGN.md "Play page".
+- **Checks:** `npm test` (119 passed), type-check, lint, production build. Headless Chrome at 1280 × 860 and 390 × 780 (touch) for each variant: no sideways scrolling, no console errors, headline and subheading clear of the building, nothing in the art behind a tile. Live tests were not rerun (no server or database code changed).
+- **Not done:** a real phone; contrast was not re-measured in the browser for the new pages (text sits on `night` or on scrims at least as dark as the old panels).
+
 ## Key decisions
 
 - Plan review decisions (2026-11-15) are folded into SPEC.md: Wikimedia required, own photos as a third source (`original`), about 40 m eligibility buffer, Google sign in only, perfect radius of 10 m in the score formula, reports counted per account.

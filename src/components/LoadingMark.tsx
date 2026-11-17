@@ -18,7 +18,7 @@ export default function LoadingMark({ label, className = "" }: { label: string; 
           <circle cx="80" cy="57" r="4.600" fill="#06182B" />
         </g>
       </svg>
-      <p className="display text-3xl text-sky">{label}</p>
+      <p className="heading text-3xl text-sky">{label}</p>
     </div>
   );
 }

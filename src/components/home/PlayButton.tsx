@@ -22,10 +22,10 @@ function TileText({ title, body, icon }: { title: string; body: string; icon: Re
 }
 
 /**
- * The Solo tile. Starts a solo game and goes to it: on the player's account
- * when signed in, as a guest when not.
+ * Starting a solo game: on the player's account when signed in, as a guest when not.
+ * Shared by the Solo tile and the hero variants on /dev/hero.
  */
-export function SoloButton({ needsUsername }: { needsUsername: boolean }) {
+export function useSoloStart(needsUsername: boolean) {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
   const [problem, setProblem] = useState<React.ReactNode>(null);
@@ -59,6 +59,12 @@ export function SoloButton({ needsUsername }: { needsUsername: boolean }) {
     }
   };
 
+  return { start, starting, problem };
+}
+
+/** The Solo tile. Starts a solo game and goes to it. */
+export function SoloButton({ needsUsername }: { needsUsername: boolean }) {
+  const { start, starting, problem } = useSoloStart(needsUsername);
   return (
     <div className="h-full">
       <button type="button" className={`${tile} btn-gold`} onClick={start} disabled={starting} aria-busy={starting}>

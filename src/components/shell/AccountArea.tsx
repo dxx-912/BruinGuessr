@@ -8,10 +8,10 @@ export default async function AccountArea() {
   if (!player) {
     return (
       <div className="flex items-center gap-2">
-        <Link href="/login" className="btn btn-quiet !rounded-full !px-4 !py-1.5 !text-base">
+        <Link href="/login" className="rounded-full px-3 py-2 font-semibold text-sky hover:text-paper focus-visible:outline-2 focus-visible:outline-paper">
           Log in
         </Link>
-        <Link href="/login?mode=signup" className="btn btn-gold !rounded-full !px-4 !py-2 !text-lg">
+        <Link href="/login?mode=signup" className="btn btn-gold !rounded-full ![--lip:3px] !px-4 !py-2 !text-base">
           Sign up
         </Link>
       </div>

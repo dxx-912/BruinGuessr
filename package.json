@@ -24,7 +24,7 @@
     "photos:reports": "tsx --env-file=.env.local scripts/pipeline/reports.ts",
     "usernames": "tsx --env-file=.env.local scripts/admin/usernames.ts",
     "photos:rotate": "tsx --env-file=.env.local scripts/pipeline/rotate-filenames.ts",
-    "art:build": "python3 scripts/build-campus-scene.py public/art/campus-scene.svg"
+    "art:build": "python3 scripts/build-campus-scene.py public/art/campus-scene.svg && python3 scripts/build-campus-scene.py public/art/hero/royce-blue.svg blue && python3 scripts/build-campus-scene.py public/art/hero/royce-gold.svg gold && python3 scripts/build-campus-scene.py public/art/hero/royce-night.svg night"
   },
   "dependencies": {
     "@supabase/realtime-js": "2.119.0",

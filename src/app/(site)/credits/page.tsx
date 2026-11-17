@@ -46,7 +46,7 @@ function Group({ group }: { group: CreditGroup }) {
   return (
     <section className="panel mt-5 overflow-hidden">
       <div className="border-b-2 border-navy-line px-5 py-4">
-        <h3 className="display flex items-baseline justify-between gap-3 text-3xl">
+        <h3 className="heading flex items-baseline justify-between gap-3 text-3xl">
           {title}
           <span className="numeric text-xl text-sky">
             {count} {count === 1 ? "photographer" : "photographers"}
@@ -77,7 +77,7 @@ async function Photographers() {
   if (!groups.length) {
     return (
       <div className="panel mt-5 !rounded-[20px] p-8 text-center">
-        <p className="display text-3xl">No photos yet</p>
+        <p className="heading text-3xl">No photos yet</p>
         <p className="mt-2 text-sky">Once photos are in the game, the people who took them are listed here.</p>
       </div>
     );
@@ -90,7 +90,7 @@ async function Photographers() {
         <Group key={group.source} group={group} />
       ))}
       <section className="mt-6">
-        <h3 className="display text-2xl">The licenses</h3>
+        <h3 className="heading text-2xl">The licenses</h3>
         <ul className="mt-2 space-y-1 text-sky">
           {[...licenses.values()]
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -119,7 +119,7 @@ export default function CreditsPage() {
         <p className="mt-2 max-w-2xl text-lg text-sky">BruinGuessr runs on photos and map data that people chose to share. These are the people.</p>
 
         <section className="mt-9" aria-labelledby="photos">
-          <h2 id="photos" className="display text-4xl">
+          <h2 id="photos" className="heading text-4xl">
             Photos
           </h2>
           <p className="mt-2 max-w-2xl text-sky">
@@ -132,7 +132,7 @@ export default function CreditsPage() {
         </section>
 
         <section className="mt-10" aria-labelledby="map">
-          <h2 id="map" className="display text-4xl">
+          <h2 id="map" className="heading text-4xl">
             Map
           </h2>
           <ul className="mt-3 space-y-2 text-sky">
@@ -151,7 +151,7 @@ export default function CreditsPage() {
         </section>
 
         <section className="mt-10" aria-labelledby="type">
-          <h2 id="type" className="display text-4xl">
+          <h2 id="type" className="heading text-4xl">
             Type
           </h2>
           <p className="mt-3 text-sky">

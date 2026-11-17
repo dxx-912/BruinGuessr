@@ -91,3 +91,9 @@ export const BoltIcon = ({ className }: P) => (
     <path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z" />
   </svg>
 );
+
+export const ArrowIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" aria-hidden className={className} {...stroke}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);

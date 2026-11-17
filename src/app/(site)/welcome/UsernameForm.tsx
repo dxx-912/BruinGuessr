@@ -80,7 +80,7 @@ export default function UsernameForm({ suggestion, next }: { suggestion: string;
 
   return (
     <form onSubmit={submit} className="mt-6" noValidate>
-      <label htmlFor={inputId} className="display text-2xl">
+      <label htmlFor={inputId} className="heading text-2xl">
         Username
       </label>
       <input

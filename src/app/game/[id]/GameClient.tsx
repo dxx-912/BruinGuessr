@@ -801,7 +801,7 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
       {confirmLeave && (
         <div className="absolute inset-0 z-50 grid animate-fade place-items-center bg-night/75 p-4" onClick={() => setConfirmLeave(false)}>
           <div role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-body" className="panel w-full max-w-sm animate-pop p-6 text-center" onClick={(ev) => ev.stopPropagation()}>
-            <h2 id="leave-title" className="display text-4xl">
+            <h2 id="leave-title" className="heading text-4xl">
               Leave this game?
             </h2>
             <p id="leave-body" className="mt-2 text-sky">
@@ -827,7 +827,7 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
           <rect x="15" y="6" width="18" height="36" rx="4" />
           <path d="M22 36h4" />
         </svg>
-        <p className="display text-4xl">Turn your phone upright</p>
+        <p className="heading text-4xl">Turn your phone upright</p>
         <p className="max-w-xs text-sky">BruinGuessr plays in portrait on a phone. The clock keeps running.</p>
       </div>
     </Shell>

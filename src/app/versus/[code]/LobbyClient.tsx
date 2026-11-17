@@ -181,7 +181,7 @@ export default function LobbyClient({ code }: { code: string | null }) {
   if (!room || !code || gameId) {
     return (
       <Shell>
-        <p className="display m-auto animate-pulse text-3xl text-sky">{gameId ? "Starting the game…" : "Joining the room…"}</p>
+        <p className="heading m-auto animate-pulse text-3xl text-sky">{gameId ? "Starting the game…" : "Joining the room…"}</p>
         {notice && <Notice text={notice} />}
       </Shell>
     );
@@ -230,7 +230,7 @@ export default function LobbyClient({ code }: { code: string | null }) {
           )}
         </div>
 
-        <h2 className="display mt-9 text-3xl">
+        <h2 className="heading mt-9 text-3xl">
           Players{" "}
           <span className="numeric text-sky">
             {room.members.length}/{room.maxPlayers}

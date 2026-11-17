@@ -53,7 +53,7 @@ export default function VersusHome({ rejoinCode }: { rejoinCode: string | null }
 
       <div className="grid gap-5 md:grid-cols-2">
         <section className="panel flex flex-col p-6">
-          <h2 className="display flex items-center gap-3 text-4xl">
+          <h2 className="heading flex items-center gap-3 text-4xl">
             <span className="chip bg-ucla-gold !text-night">
               <CrownIcon />
             </span>
@@ -66,7 +66,7 @@ export default function VersusHome({ rejoinCode }: { rejoinCode: string | null }
         </section>
 
         <form className="panel flex flex-col p-6" onSubmit={join}>
-          <h2 className="display flex items-center gap-3 text-4xl">
+          <h2 className="heading flex items-center gap-3 text-4xl">
             <span className="chip bg-ucla-blue">
               <SwordsIcon />
             </span>

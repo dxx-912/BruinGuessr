@@ -52,7 +52,7 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
                 <f.icon />
               </span>
               <div>
-                <h2 className="display text-3xl sm:mt-3">{f.title}</h2>
+                <h2 className="heading text-3xl sm:mt-3">{f.title}</h2>
                 <p className="mt-1 text-sky">{f.body}</p>
               </div>
             </li>
@@ -61,7 +61,7 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
 
         <section className="mt-10" aria-labelledby="top-players">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 id="top-players" className="display text-4xl">
+            <h2 id="top-players" className="heading text-4xl">
               Top players
             </h2>
             <Link href="/leaderboard" className="font-semibold text-sky underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">

@@ -5,11 +5,12 @@ import "./globals.css";
 
 const barlow = Barlow({ variable: "--font-barlow", subsets: ["latin"], weight: ["500", "600"] });
 
+// Italic 800 is the display face (headline, scores); upright 700 is for headings and button labels.
 const barlowCondensed = Barlow_Condensed({
   variable: "--font-barlow-condensed",
   subsets: ["latin"],
   weight: ["700", "800"],
-  style: ["italic"],
+  style: ["normal", "italic"],
 });
 
 // Only the development review pages use the mono face.

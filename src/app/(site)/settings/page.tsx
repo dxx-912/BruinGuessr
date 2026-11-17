@@ -32,7 +32,7 @@ export default function SettingsPage() {
 function Card({ id, title, icon, danger = false, children }: { id: string; title: string; icon: React.ReactNode; danger?: boolean; children: React.ReactNode }) {
   return (
     <section className={`row mt-3 p-4 sm:p-5 ${danger ? "!border-alarm/60" : ""}`} aria-labelledby={id}>
-      <h2 id={id} className={`flex items-center gap-2 border-b border-navy-line pb-3 text-xl font-bold ${danger ? "text-alarm" : ""}`}>
+      <h2 id={id} className={`heading flex items-center gap-2 border-b border-navy-line pb-3 text-2xl ${danger ? "text-alarm" : ""}`}>
         <span className="h-5 w-5 [&>svg]:h-full [&>svg]:w-full">{icon}</span>
         {title}
       </h2>
@@ -53,7 +53,7 @@ async function Settings() {
       <div className="row mt-4 flex items-center gap-4 p-4 sm:p-5">
         <span className="display grid h-16 w-16 shrink-0 place-items-center rounded-full border-4 border-navy-line bg-ucla-blue text-4xl">{player.username[0]}</span>
         <div className="min-w-0">
-          <p className="display truncate text-3xl">{player.username}</p>
+          <p className="heading truncate text-3xl">{player.username}</p>
           <p className="break-all text-sm font-semibold text-sky">{player.email ?? "Your Google account"}</p>
           {joined && <p className="text-sm text-sky">Member since {formatDay(joined)}</p>}
         </div>

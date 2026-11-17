@@ -114,7 +114,7 @@ function ProfileView({ profile }: { profile: PlayerProfile }) {
 
       <div className="panel mt-3 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-3 border-b-2 border-navy-line px-1 pb-3">
-          <h2 className="display text-3xl">Recent games</h2>
+          <h2 className="heading text-3xl">Recent games</h2>
           {profile.isYou && (
             <Link href="/settings" className="btn-outline">
               Settings
@@ -129,7 +129,7 @@ function ProfileView({ profile }: { profile: PlayerProfile }) {
           </ol>
         ) : (
           <div className="px-1 py-6 text-center">
-            <p className="display text-3xl">No games yet</p>
+            <p className="heading text-3xl">No games yet</p>
             <p className="mt-1 text-sky">{profile.isYou ? "Finish a game and it shows up here." : `${profile.username} hasn't finished a game yet.`}</p>
             {profile.isYou && (
               <Link href="/" className="btn btn-gold mt-5">

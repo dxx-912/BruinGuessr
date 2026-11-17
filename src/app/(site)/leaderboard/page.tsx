@@ -64,7 +64,7 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
   if (board.total === 0) {
     return (
       <div className="panel mt-8 p-8 text-center">
-        <p className="display text-4xl">No scores yet</p>
+        <p className="heading text-4xl">No scores yet</p>
         <p className="mt-2 text-sky">Finish a game and your score goes up here first.</p>
         <Link href="/" className="btn btn-gold mt-6">
           Play solo
