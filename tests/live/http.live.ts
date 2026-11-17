@@ -148,10 +148,17 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
 
   it("stops one network from making guest games without limit", async () => {
     const network = { "x-real-ip": testNetwork() };
+    const ipHash = guestNetworks.at(-1)!;
+    const { guest_new_per_ip_hour: limit } = (await admin.from("settings").select("guest_new_per_ip_hour").single()).data!;
+    // Each request has no cookie, so each one makes a new guest: the per-network guest limit is what holds.
+    // Fill the hour up to two short of the limit directly, then make the rest over HTTP.
+    const ids = Array.from({ length: limit - 2 }, () => randomUUID());
+    expect((await admin.from("profiles").insert(ids.map((id) => ({ id, is_guest: true })))).error).toBeNull();
+    const hashes = ids.map(() => createHmac("sha256", "x").update(randomUUID()).digest("hex"));
+    expect((await admin.from("guests").insert(ids.map((id, i) => ({ id, token_hash: hashes[i], ip_hash: ipHash })))).error).toBeNull();
     const statuses: number[] = [];
-    // Each request has no cookie, so each one makes a new guest: the per-network guest limit (30 an hour) is what holds.
-    for (let i = 0; i < 31; i++) statuses.push((await call(null, "POST", "/api/games", undefined, BASE, network)).status);
-    expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
+    for (let i = 0; i < 2; i++) statuses.push((await call(null, "POST", "/api/games", undefined, BASE, network)).status);
+    expect(statuses).toEqual([200, 200]);
     const refused = await call(null, "POST", "/api/games", undefined, BASE, network);
     expect(refused.status).toBe(429);
     expect(await refused.json()).toEqual({ error: "rate_limited" });

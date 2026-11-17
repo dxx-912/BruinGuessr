@@ -14,8 +14,8 @@ import { adminClient } from "./supabase";
  * leaderboard, and nothing ever moves a guest's games onto an account.
  *
  * Rate limits (all in the settings table, checked in the database):
- *   - new guests: 30 an hour per network,
- *   - guest games: 20 an hour per guest, 60 an hour per network, and 1,500 an
+ *   - new guests: 150 an hour per network,
+ *   - guest games: 20 an hour per guest, 300 an hour per network, and 1,500 an
  *     hour across all guests together.
  * The network is the visitor's IP address, stored only as an HMAC keyed with a
  * server secret, so the stored value cannot be turned back into an address.

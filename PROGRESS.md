@@ -98,7 +98,7 @@ Read SPEC.md first, then this file.
 
 **Phase 5 (polish and deploy): built 2026-11-16. Daniel moved on to Iteration 2 on 2026-11-17.** Details in "Phase 5" below.
 
-**Iteration 2 (SPEC.md "Iteration 2"), Phase 6a (site structure and accounts): built 2026-11-17, waiting for Daniel's approval.** Details in "Phase 6a" below. Phases 6b (versus health battle) and 6c (visual pass) are not started.
+**Iteration 2 (SPEC.md "Iteration 2"), Phase 6a (site structure and accounts): done and approved by Daniel 2026-11-17.** Details in "Phase 6a" below. Daniel pushes it himself. Phases 6b (versus health battle) and 6c (visual pass) are not started.
 
 The site is live at https://ucla-geoguessr.vercel.app with Google sign in working (Daniel, 2026-11-16). **The live site and `npm run dev` use the same Supabase database.** Migrations and test data land in production the moment they are applied or created.
 
@@ -227,11 +227,12 @@ What was added:
 - Guests cannot report photos (the server answers 403 `account_required`; the button is hidden). A guest costs nothing to make, so guest reports would let one person hide any photo.
 - Versus, profile and settings need an account: the room API only accepts a real Supabase session, which a guest does not have.
 - **Rate limits**, checked in the database under a lock so they cannot be raced, all columns in `settings`:
-  - new guests: 30 an hour per network (`guest_new_per_ip_hour`),
-  - guest games: 20 an hour per guest (`guest_games_per_hour`), 60 an hour per network (`guest_games_per_ip_hour`), 1,500 an hour for all guests together (`guest_games_global_hour`).
+  - new guests: 150 an hour per network (`guest_new_per_ip_hour`),
+  - guest games: 20 an hour per guest (`guest_games_per_hour`), 300 an hour per network (`guest_games_per_ip_hour`), 1,500 an hour for all guests together (`guest_games_global_hour`).
   - "Network" is the visitor's IP address from Vercel's `x-real-ip` / `x-forwarded-for` (Vercel sets these itself; a client cannot). Only an HMAC of it is stored, keyed with the service key, so the stored value cannot be turned back into an address. Rate-limit rows are kept one day.
   - When a limit is hit, the Solo tile says "That's a lot of guest games from here. Sign up to keep playing, or try again in a little while." Signed-in players are never limited.
-  - The per-network limit is what stops someone clearing cookies to get a fresh guest. It is set high (60 games an hour) because many students can share one campus Wi-Fi address.
+  - The per-network limit is what stops someone clearing cookies to get a fresh guest. It is set high because many students can share one campus Wi-Fi address.
+  - Daniel raised the two per-network limits on approval (2026-11-17), from 30 new guests and 60 games an hour. The new values are set in the live `settings` row; the migration's column defaults still say 30 and 60, so a database rebuilt from the migrations would need the row set again. The live tests read the limits from `settings`, so they hold whatever the values are.
 
 ### Decisions made in Phase 6a (say so if you want any changed)
 

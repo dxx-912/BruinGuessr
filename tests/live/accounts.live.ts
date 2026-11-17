@@ -128,10 +128,11 @@ describe("guests", () => {
     expect((await rpc<{ id?: string }>("start_guest_game", { p_guest: guest, p_ip_hash: ip })).id).toBeTypeOf("string");
   });
 
-  it("are limited to 60 games an hour per network, however many guests it makes", async () => {
+  it("are limited per network (guest_games_per_ip_hour), however many guests it makes", async () => {
+    const { guest_games_per_ip_hour: limit } = (await admin.from("settings").select("guest_games_per_ip_hour").single()).data!;
     const ip = network();
     const first = await newGuest(ip);
-    await admin.from("guest_game_starts").insert(Array.from({ length: 60 }, () => ({ guest_id: first, ip_hash: ip })));
+    await admin.from("guest_game_starts").insert(Array.from({ length: limit }, () => ({ guest_id: first, ip_hash: ip })));
     const fresh = await newGuest(ip);
     expect(await rpc("start_guest_game", { p_guest: fresh, p_ip_hash: ip })).toEqual({ error: "rate_limited" });
     // Another network is unaffected.
@@ -140,9 +141,15 @@ describe("guests", () => {
     expect((await rpc<{ id?: string }>("start_guest_game", { p_guest: away, p_ip_hash: elsewhere })).id).toBeTypeOf("string");
   });
 
-  it("are limited to 30 new guests an hour per network", async () => {
+  it("are limited in how many new guests one network makes an hour (guest_new_per_ip_hour)", async () => {
+    const { guest_new_per_ip_hour: limit } = (await admin.from("settings").select("guest_new_per_ip_hour").single()).data!;
     const ip = network();
-    for (let i = 0; i < 30; i++) await newGuest(ip);
+    // Fill the hour up to one short of the limit directly, then make the last one through the function.
+    const ids = Array.from({ length: limit - 1 }, () => randomUUID());
+    guests.push(...ids);
+    expect((await admin.from("profiles").insert(ids.map((id) => ({ id, is_guest: true })))).error).toBeNull();
+    expect((await admin.from("guests").insert(ids.map((id) => ({ id, token_hash: tokenHash(), ip_hash: ip })))).error).toBeNull();
+    await newGuest(ip);
     expect(await rpc("create_guest", { p_token_hash: tokenHash(), p_ip_hash: ip })).toEqual({ error: "rate_limited" });
   });
 
