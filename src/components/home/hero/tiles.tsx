@@ -91,11 +91,23 @@ export function CardVersus() {
 
 const enamel =
   "group relative flex h-full w-full overflow-hidden rounded-[24px] text-left transition duration-150 " +
-  "flex-row items-center gap-4 p-4 sm:flex-col sm:items-stretch sm:gap-0 sm:p-5 " +
+  "flex-row items-center gap-4 p-4 " +
   "hover:-translate-y-0.5 active:translate-y-[3px] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-paper disabled:cursor-wait";
 
-function EnamelBody({ tone, title, body, cta, icon }: { tone: "gold" | "blue"; title: string; body: string; cta: string; icon: React.ReactNode }) {
+/**
+ * Enamel tiles are a compact row (icon, words, arrow) until `tallFrom`, then a tall
+ * tile with the call to action along the bottom. Written out per breakpoint so
+ * Tailwind sees every class.
+ */
+const TALL = {
+  sm: { box: "sm:flex-col sm:items-stretch sm:gap-0 sm:p-5", text: "sm:mt-4 sm:flex-none", title: "sm:text-[2.5rem]", foot: "sm:flex", arrow: "sm:hidden" },
+  xl: { box: "xl:flex-col xl:items-stretch xl:gap-0 xl:p-5", text: "xl:mt-4 xl:flex-none", title: "xl:text-[2.5rem]", foot: "xl:flex", arrow: "xl:hidden" },
+} as const;
+type TallFrom = keyof typeof TALL;
+
+function EnamelBody({ tone, title, body, cta, icon, tallFrom }: { tone: "gold" | "blue"; title: string; body: string; cta: string; icon: React.ReactNode; tallFrom: TallFrom }) {
   const gold = tone === "gold";
+  const t = TALL[tallFrom];
   return (
     <>
       {/* The icon again, large and faint, running off the corner */}
@@ -111,17 +123,17 @@ function EnamelBody({ tone, title, body, cta, icon }: { tone: "gold" | "blue"; t
       >
         <span className="h-8 w-8 [&>svg]:h-full [&>svg]:w-full">{icon}</span>
       </span>
-      <span className="relative min-w-0 flex-1 sm:mt-4 sm:flex-none">
-        <span className="heading block text-[2.2rem] leading-none sm:text-[2.5rem]">{title}</span>
+      <span className={`relative min-w-0 flex-1 ${t.text}`}>
+        <span className={`heading block text-[2.2rem] leading-none ${t.title}`}>{title}</span>
         <span className="mt-1.5 block font-semibold leading-snug opacity-85">{body}</span>
       </span>
-      <span className="relative mt-auto hidden items-center justify-between pt-5 sm:flex">
+      <span className={`relative mt-auto hidden items-center justify-between pt-5 ${t.foot}`}>
         <span className="font-display text-lg font-bold uppercase tracking-[0.04em]">{cta}</span>
         <span className={`grid h-10 w-10 place-items-center rounded-full transition-transform group-hover:translate-x-1 ${gold ? "bg-night text-ucla-gold" : "bg-paper text-ucla-blue"}`}>
           <ArrowIcon className="h-5 w-5" />
         </span>
       </span>
-      <span className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-full sm:hidden ${gold ? "bg-night text-ucla-gold" : "bg-paper text-ucla-blue"}`}>
+      <span className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-full ${t.arrow} ${gold ? "bg-night text-ucla-gold" : "bg-paper text-ucla-blue"}`}>
         <ArrowIcon className="h-5 w-5" />
         <span className="sr-only">{cta}</span>
       </span>
@@ -129,7 +141,7 @@ function EnamelBody({ tone, title, body, cta, icon }: { tone: "gold" | "blue"; t
   );
 }
 
-export function EnamelSolo({ needsUsername }: { needsUsername: boolean }) {
+export function EnamelSolo({ needsUsername, tallFrom = "sm" }: { needsUsername: boolean; tallFrom?: TallFrom }) {
   const { start, starting, problem } = useSoloStart(needsUsername);
   return (
     <div className="h-full">
@@ -138,22 +150,22 @@ export function EnamelSolo({ needsUsername }: { needsUsername: boolean }) {
         onClick={start}
         disabled={starting}
         aria-busy={starting}
-        className={`${enamel} cursor-pointer bg-[linear-gradient(180deg,#ffdf4d,#ffd100_45%,#f2c200)] text-night shadow-[inset_0_-2px_0_rgb(0_0_0/0.08),0_6px_0_#b38f00,0_26px_44px_-14px_rgb(0_0_0/0.75),0_0_60px_-10px_rgb(255_209_0/0.35)] active:shadow-[0_3px_0_#b38f00,0_18px_30px_-14px_rgb(0_0_0/0.75)]`}
+        className={`${enamel} ${TALL[tallFrom].box} cursor-pointer bg-[linear-gradient(180deg,#ffdf4d,#ffd100_45%,#f2c200)] text-night shadow-[inset_0_-2px_0_rgb(0_0_0/0.08),0_6px_0_#b38f00,0_26px_44px_-14px_rgb(0_0_0/0.75),0_0_60px_-10px_rgb(255_209_0/0.35)] active:shadow-[0_3px_0_#b38f00,0_18px_30px_-14px_rgb(0_0_0/0.75)]`}
       >
-        <EnamelBody tone="gold" title={starting ? "Starting…" : COPY.solo.title} body={COPY.solo.body} cta={COPY.solo.cta} icon={<TargetIcon />} />
+        <EnamelBody tone="gold" title={starting ? "Starting…" : COPY.solo.title} body={COPY.solo.body} cta={COPY.solo.cta} icon={<TargetIcon />} tallFrom={tallFrom} />
       </button>
       {problem && <Problem>{problem}</Problem>}
     </div>
   );
 }
 
-export function EnamelVersus() {
+export function EnamelVersus({ tallFrom = "sm" }: { tallFrom?: TallFrom }) {
   return (
     <Link
       href="/versus"
-      className={`${enamel} bg-[linear-gradient(180deg,#3a8ccb,#2774ae_45%,#2168a0)] text-paper shadow-[inset_0_-2px_0_rgb(0_0_0/0.1),0_6px_0_#17507c,0_26px_44px_-14px_rgb(0_0_0/0.75)] active:shadow-[0_3px_0_#17507c,0_18px_30px_-14px_rgb(0_0_0/0.75)]`}
+      className={`${enamel} ${TALL[tallFrom].box} bg-[linear-gradient(180deg,#3a8ccb,#2774ae_45%,#2168a0)] text-paper shadow-[inset_0_-2px_0_rgb(0_0_0/0.1),0_6px_0_#17507c,0_26px_44px_-14px_rgb(0_0_0/0.75)] active:shadow-[0_3px_0_#17507c,0_18px_30px_-14px_rgb(0_0_0/0.75)]`}
     >
-      <EnamelBody tone="blue" title={COPY.versus.title} body={COPY.versus.body} cta={COPY.versus.cta} icon={<SwordsIcon />} />
+      <EnamelBody tone="blue" title={COPY.versus.title} body={COPY.versus.body} cta={COPY.versus.cta} icon={<SwordsIcon />} tallFrom={tallFrom} />
     </Link>
   );
 }

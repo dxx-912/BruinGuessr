@@ -2,15 +2,15 @@ import { Suspense } from "react";
 import { COPY, GuestNote, Scene, SoloSlot, TopPlayers, TopPlayersHeading } from "./shared";
 import { EnamelSolo, EnamelVersus } from "./tiles";
 
-/** The scene's left side and top dissolve into the page (1280 px and wider). */
-const WIDE_MASK = {
-  WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 36%), linear-gradient(to bottom, transparent 0, #000 14%)",
+/** The scene's left side and top dissolve into the page, so Royce has no edge on the text's side. */
+const SIDE_MASK = {
+  WebkitMaskImage: "linear-gradient(to right, transparent 0%, #000 18%), linear-gradient(to bottom, transparent 0, #000 16%)",
   WebkitMaskComposite: "source-in",
-  maskImage: "linear-gradient(to right, transparent 0%, #000 36%), linear-gradient(to bottom, transparent 0, #000 14%)",
+  maskImage: "linear-gradient(to right, transparent 0%, #000 18%), linear-gradient(to bottom, transparent 0, #000 16%)",
   maskComposite: "intersect",
 } as const;
 
-/** Only the top melts into the page (phones and tablets). */
+/** Only the top melts into the page (phones). */
 const TOP_MASK = {
   WebkitMaskImage: "linear-gradient(to bottom, transparent 0, #000 22%)",
   maskImage: "linear-gradient(to bottom, transparent 0, #000 22%)",
@@ -18,41 +18,44 @@ const TOP_MASK = {
 
 /**
  * B2. B without the arch. The same golden-hour Royce, enamel tiles and
- * numbered steps, but the scene is part of the background, as in C: on a wide
- * screen (from 1280 px, so both towers always fit) it bleeds off the right and dissolves into the night behind the text;
- * on a phone it sits between the text and the tiles, fading in at the top and
- * out at the bottom.
+ * numbered steps; the headline and both tiles on the left, Royce on the right
+ * as part of the background, its left side dissolving into the night. The
+ * scene is at most 4:5 and starts where the text column ends (narrower, it gets shorter rather than cropping), so
+ * both towers stay in view from a tablet to a wide monitor. A phone is too
+ * narrow to split, so there the scene sits between the text and the tiles.
  */
 export default function HeroB2() {
   return (
     <div className="w-full overflow-x-clip pb-6">
-      <section aria-labelledby="headline" className="relative xl:min-h-[clamp(560px,calc(100dvh-5rem),720px)]">
-        {/* Wide screens: the scene behind the whole section */}
-        <div aria-hidden className="absolute inset-x-0 -top-24 bottom-0 -z-10 hidden overflow-hidden xl:block">
-          <div className="absolute inset-y-0 left-[30%] right-[-22%]">
-            <Scene grade="gold" className="h-full w-full object-cover object-bottom" style={WIDE_MASK} />
+      <section aria-labelledby="headline" className="@container relative md:min-h-[clamp(540px,calc(100dvh-5rem),720px)]">
+        {/* Tablets and up: Royce on the right, anchored to the bottom of the section. Its left edge starts
+            just past the text column (46% of the centred 72rem column), so the fade never runs under a tile. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 bottom-0 left-[calc((100cqw-min(100cqw,72rem))/2+min(100cqw,72rem)*0.46)] right-0 -z-10 hidden md:block"
+        >
+          <div className="absolute bottom-0 right-0 aspect-[4/5] max-h-full w-full">
+            <Scene grade="gold" className="h-full w-full object-cover object-[47%_100%]" style={SIDE_MASK} />
           </div>
-          {/* Night behind the text, clearing toward Royce */}
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(6_24_43/0.96)_0%,rgb(6_24_43/0.86)_40%,rgb(6_24_43/0)_64%)]" />
         </div>
 
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="pt-3 text-center sm:pt-6 xl:max-w-[min(520px,48%)] xl:pt-[clamp(32px,7vh,72px)] xl:text-left">
-            <h1 id="headline" className="display text-[clamp(3.6rem,13vw,6.4rem)] xl:text-[clamp(4.2rem,6.4vw,6rem)]">
+          <div className="pt-3 sm:pt-6 md:max-w-[44%] md:pt-[clamp(28px,6vh,64px)]">
+            <h1 id="headline" className="display text-[clamp(3.6rem,13vw,5rem)] md:text-[clamp(3.4rem,6.4vw,6rem)]">
               Know <span className="text-ucla-gold">UCLA?</span>
             </h1>
-            <p className="mx-auto mt-3 max-w-md text-lg leading-snug text-[#cfe0f4] sm:text-xl xl:mx-0">{COPY.sub}</p>
+            <p className="mt-3 max-w-md text-lg leading-snug text-[#cfe0f4] sm:text-xl">{COPY.sub}</p>
 
-            {/* Phones and tablets: the scene between the text and the tiles */}
-            <div aria-hidden className="-mx-4 -mt-4 sm:-mx-6 xl:hidden">
+            {/* Phones: the scene between the text and the tiles */}
+            <div aria-hidden className="-mx-4 -mt-4 sm:-mx-6 md:hidden">
               <Scene grade="gold" className="aspect-[1600/720] min-h-[300px] w-full object-cover object-bottom" style={TOP_MASK} />
             </div>
 
-            <div className="grid gap-4 text-left sm:grid-cols-2 sm:gap-5 xl:mt-8">
-              <Suspense fallback={<EnamelSolo needsUsername={false} />}>
-                <SoloSlot>{(needsUsername) => <EnamelSolo needsUsername={needsUsername} />}</SoloSlot>
+            <div className="grid gap-4 md:mt-8 xl:grid-cols-2 xl:gap-5">
+              <Suspense fallback={<EnamelSolo needsUsername={false} tallFrom="xl" />}>
+                <SoloSlot>{(needsUsername) => <EnamelSolo needsUsername={needsUsername} tallFrom="xl" />}</SoloSlot>
               </Suspense>
-              <EnamelVersus />
+              <EnamelVersus tallFrom="xl" />
             </div>
             <Suspense fallback={<p className="mt-5 h-5" />}>
               <GuestNote className="mt-5" />
