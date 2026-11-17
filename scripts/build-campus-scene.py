@@ -278,24 +278,23 @@ for x, flip in ((X(128), -1), (X(2065), 1)):
 FX, FY = 330, 632
 tree(120, 452, 120, n=11)
 tree(250, 520, 64)
-poly([(FX - 70, FY), (FX - 50, FY - 9), (FX + 50, FY - 9), (FX + 70, FY), (FX + 50, FY + 9), (FX - 50, FY + 9)], STONE)
-poly([(FX - 70, FY), (FX + 70, FY), (FX + 50, FY + 9), (FX - 50, FY + 9)], STONE_SHADE)
-poly([(FX - 56, FY - 1), (FX - 42, FY - 6), (FX + 42, FY - 6), (FX + 56, FY - 1), (FX + 42, FY + 3), (FX - 42, FY + 3)], "#5FA3D9")
-# The jet: a tall plume, widest two thirds of the way up, with thin veils of spray falling back to the basin
+# A low, wide basin: front wall, rim, water
+poly([(FX - 92, FY - 6), (FX + 92, FY - 6), (FX + 84, FY + 14), (FX - 84, FY + 14)], STONE_SHADE)
+poly([(FX - 96, FY - 6), (FX - 72, FY - 15), (FX + 72, FY - 15), (FX + 96, FY - 6), (FX + 72, FY + 3), (FX - 72, FY + 3)], STONE)
+poly([(FX - 80, FY - 6), (FX - 60, FY - 12), (FX + 60, FY - 12), (FX + 80, FY - 6), (FX + 60, FY), (FX - 60, FY)], "#5FA3D9")
+poly([(FX - 80, FY - 6), (FX + 80, FY - 6), (FX + 60, FY), (FX - 60, FY)], "#4F93CB")
+# A modest spray, well under the height of the trees beside it: a short centre jet
+# with two veils arcing back down into the basin
 for pts, c in [
-    ([(FX - 15, 470), (FX - 30, 520), (FX - 40, FY - 6), (FX - 26, FY - 6), (FX - 20, 520)], "#7AAAD9"),
-    ([(FX + 15, 470), (FX + 30, 520), (FX + 40, FY - 6), (FX + 26, FY - 6), (FX + 20, 520)], "#6E9FD0"),
+    ([(FX - 10, FY - 47), (FX - 32, FY - 40), (FX - 50, FY - 8), (FX - 40, FY - 8), (FX - 24, FY - 33)], "#7AAAD9"),
+    ([(FX + 10, FY - 47), (FX + 32, FY - 40), (FX + 50, FY - 8), (FX + 40, FY - 8), (FX + 24, FY - 33)], "#6E9FD0"),
 ]:
     poly(pts, c)
-poly([(FX - 9, FY - 2), (FX - 13, 520), (FX - 17, 466), (FX - 13, 430), (FX - 3, 392), (FX + 4, 396),
-      (FX + 14, 432), (FX + 17, 468), (FX + 13, 520), (FX + 9, FY - 2)], "#CFE6F7")
-poly([(FX + 1, 393), (FX + 4, 396), (FX + 14, 432), (FX + 17, 468), (FX + 13, 520), (FX + 9, FY - 2), (FX + 1, FY - 2)], "#A9CDEB")
-poly([(FX - 13, 430), (FX - 3, 392), (FX - 4, 440), (FX - 17, 466)], "#EAF4FC")
-for pts, c in [
-    ([(FX - 12, FY - 4), (FX - 50, FY - 8), (FX - 26, FY - 20)], "#CFE6F7"),
-    ([(FX + 12, FY - 4), (FX + 50, FY - 8), (FX + 26, FY - 20)], "#A9CDEB"),
-]:
-    poly(pts, c)
+poly([(FX - 5, FY - 7), (FX - 4, FY - 40), (FX - 15, FY - 48), (FX - 7, FY - 54), (FX, FY - 49), (FX + 7, FY - 54),
+      (FX + 15, FY - 48), (FX + 4, FY - 40), (FX + 5, FY - 7)], "#CFE6F7")
+poly([(FX, FY - 49), (FX + 7, FY - 54), (FX + 15, FY - 48), (FX + 4, FY - 40), (FX + 5, FY - 7), (FX, FY - 7)], "#A9CDEB")
+for x, y, r in [(FX - 58, FY - 22, 2.5), (FX + 58, FY - 20, 2.5), (FX - 22, FY - 58, 2), (FX + 24, FY - 56, 2)]:
+    poly([(x, y - r * 1.6), (x + r, y), (x, y + r * 1.6), (x - r, y)], "#CFE6F7")
 
 # Right-hand tree in front of the neighbouring hall
 tree(1318, 528, 64)
