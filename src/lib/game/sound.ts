@@ -88,6 +88,10 @@ export const sound = {
   /** A perfect guess. */
   bullseye: () =>
     play([523.25, 659.25, 783.99, 1046.5].map((from, i) => ({ from, at: i * 0.11, length: i === 3 ? 0.5 : 0.14, volume: 0.14, wave: "triangle" as const }))),
+  /** Versus: someone locked in and the clock dropped to ten seconds. */
+  hurry: () => play([{ from: 988, length: 0.09, volume: 0.1, wave: "square" }, { from: 988, at: 0.14, length: 0.09, volume: 0.1, wave: "square" }]),
+  /** Versus: this player's health hit zero. */
+  knockout: () => play([{ from: 392, to: 98, length: 0.7, volume: 0.16, wave: "sawtooth" }, { from: 196, to: 65, at: 0.05, length: 0.75, volume: 0.1, wave: "triangle" }]),
   /** A new round is about to start. */
   roundStart: () => play([{ from: 587, length: 0.1, wave: "triangle" }, { from: 880, at: 0.1, length: 0.18, wave: "triangle" }]),
 };

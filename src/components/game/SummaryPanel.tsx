@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { ordinal, pageOfRank, type Leaderboard } from "@/lib/leaderboard";
 import { formatDistance, formatPoints, gameVerdict } from "@/lib/game/format";
 import { maxTotal, type GameState } from "@/lib/game/types";
-import { rankOf, SeatBadge } from "@/components/versus/SeatBadge";
+import { SeatBadge } from "@/components/versus/SeatBadge";
+import { standingRank, standings } from "@/lib/versus/health";
 import CountUp from "./CountUp";
 
 type Props = {
@@ -70,26 +71,38 @@ function GuestInvite() {
   );
 }
 
-/** A versus game's last word: everyone's total, best first. */
+/**
+ * A versus game's last word: the winner, then everyone else in the order they
+ * were knocked out, last one out first. A game from before health is ranked
+ * by total, as it was then.
+ */
 function Standings({ versus }: { versus: NonNullable<GameState["versus"]> }) {
-  const totals = versus.players.map((p) => p.total);
-  const rows = [...versus.players].sort((a, b) => b.total - a.total || a.seat - b.seat);
+  const legacy = versus.startHealth === null;
+  const rows = standings(versus.players);
   return (
     <section className="px-2 pb-1 pt-2">
       <h2 className="px-2 text-sm font-semibold text-sky">Final standings</h2>
       <ol className="mt-1">
         {rows.map((p) => {
-          const rank = rankOf(p.total, totals);
+          const rank = standingRank(p, versus.players);
           return (
             <li key={p.seat} className={`flex items-center gap-3 rounded-xl border-2 px-2 py-1.5 ${rank === 1 ? "border-ucla-gold" : "border-transparent"} ${p.isYou ? "bg-navy-line" : ""}`}>
               <span className={`display numeric w-6 text-center text-2xl ${rank === 1 ? "text-ucla-gold" : "text-sky"}`}>{rank}</span>
-              <SeatBadge seat={p.seat} name={p.username} />
+              <SeatBadge seat={p.seat} name={p.username} className={`h-8 w-8 text-lg ${rank !== 1 && !legacy ? "grayscale" : ""}`} />
               <span className="min-w-0 flex-1 truncate font-semibold">
                 {p.username}
                 {p.isYou && <span className="ml-1 font-medium text-sky">(you)</span>}
               </span>
               {rank === 1 && <span className="display rounded-full bg-ucla-gold px-2.5 py-0.5 text-base text-night">Winner</span>}
-              <span className="display numeric text-3xl text-paper">{formatPoints(p.total)}</span>
+              {legacy ? (
+                <span className="display numeric text-3xl text-paper">{formatPoints(p.total)}</span>
+              ) : p.eliminatedRound !== null && rank !== 1 ? (
+                <span className="whitespace-nowrap text-sm font-semibold text-sky">Out in round {p.eliminatedRound}</span>
+              ) : (
+                <span className="display numeric whitespace-nowrap text-2xl text-health">
+                  {formatPoints(p.health ?? 0)} <span className="text-sm text-sky">health</span>
+                </span>
+              )}
             </li>
           );
         })}
@@ -103,44 +116,60 @@ function rematchNote(versus: NonNullable<GameState["versus"]>): string {
   const { state, ready } = versus.rematch;
   if (state === "started") return "The rematch started without you. You can host a new room.";
   if (state === "closed") return "This room has closed. You can host a new one.";
-  if (ready === 0) return "Same room, same players, five new photos.";
+  if (ready === 0) return "Same room, same players, everyone back to full health.";
   return `${ready} of ${versus.players.length} ${ready === 1 ? "is" : "are"} back in the lobby for a rematch.`;
 }
 
-/** After round five: every round side by side, the total, and "Play again". In a versus game, the final standings and "Rematch". */
+/** After the last round: every round side by side, the total, and "Play again". In a versus game, the winner, the knock-out order and "Rematch". */
 export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhoto, onPlayAgain, onHome, busy, guest = false }: Props) {
   const max = maxTotal(state);
   const versus = state.versus;
-  const totals = versus?.players.map((p) => p.total) ?? [];
-  const rank = versus ? rankOf(state.totalScore, totals) : 0;
+  const me = versus?.players.find((p) => p.isYou) ?? null;
+  const place = me && versus ? standingRank(me, versus.players) : 0;
+  const winners = versus ? versus.players.filter((p) => standingRank(p, versus.players) === 1).length : 0;
   const verdict = !versus
     ? gameVerdict(state.totalScore, max)
-    : rank === 1
-      ? totals.filter((t) => t === state.totalScore).length > 1
+    : place === 1
+      ? winners > 1
         ? "Tied for first"
         : "You won the room"
-      : `${ordinal(rank)} of ${totals.length} in the room`;
+      : me?.eliminatedRound
+        ? `Knocked out in round ${me.eliminatedRound}`
+        : `${ordinal(place)} of ${versus.players.length} in the room`;
   const canRematch = versus?.rematch.state === "open";
+  // Versus: only the rounds this player played (not those watched after being knocked out).
+  const results = versus ? state.results.filter((r) => !r.players || r.players.some((p) => p.seat === versus.seat)) : state.results;
   return (
     <section className="absolute inset-x-0 bottom-0 z-30 flex h-[64%] animate-rise flex-col border-t-2 border-navy-line bg-navy md:inset-y-0 md:left-auto md:right-0 md:h-auto md:w-[28rem] md:border-l-2 md:border-t-0">
       {/* On a phone the rounds below need the room, so the total sits on one line with its "out of". */}
       <div className="border-b-2 border-navy-line px-4 pb-2 pt-3 md:px-5 md:pb-4 md:pt-5">
         <p className="text-sm font-semibold text-sky">{verdict}</p>
-        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 md:mt-1 md:block">
-          <h1 className="display text-5xl text-ucla-gold md:text-7xl">
-            <CountUp value={state.totalScore} durationMs={1400} />
-          </h1>
-          <p className="font-semibold text-sky md:mt-1">out of {formatPoints(max)} points</p>
-        </div>
-        {state.status === "completed" && (guest ? <GuestInvite /> : <StandingLine gameId={state.id} />)}
+        {versus ? (
+          // Versus never counts toward the leaderboard: the headline is where this player finished.
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 md:mt-1 md:block">
+            <h1 className={`display text-5xl md:text-7xl ${place === 1 ? "text-ucla-gold" : "text-paper"}`}>{ordinal(place)}</h1>
+            <p className="font-semibold text-sky md:mt-1">
+              of {versus.players.length} players · {state.currentRound} {state.currentRound === 1 ? "round" : "rounds"}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 md:mt-1 md:block">
+            <h1 className="display text-5xl text-ucla-gold md:text-7xl">
+              <CountUp value={state.totalScore} durationMs={1400} />
+            </h1>
+            <p className="font-semibold text-sky md:mt-1">out of {formatPoints(max)} points</p>
+          </div>
+        )}
+        {state.status === "completed" && !versus && (guest ? <GuestInvite /> : <StandingLine gameId={state.id} />)}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {versus && <Standings versus={versus} />}
         {versus && <h2 className="px-4 pt-2 text-sm font-semibold text-sky">Your rounds</h2>}
         <ol className="px-3 py-2" onMouseLeave={() => onFocus(null)}>
-          {state.results.map((r) => {
+          {results.map((r) => {
             const photo = photos[r.round];
+            const damage = r.players?.find((p) => p.seat === versus?.seat)?.damage ?? null;
             return (
               <li key={r.round}>
                 <div
@@ -162,7 +191,10 @@ export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhot
                       {r.guess && r.distanceM !== null ? `${formatDistance(r.distanceM)} away` : "No guess"} · {r.credit.photographer}
                     </p>
                   </button>
-                  <p className={`display numeric text-3xl ${r.score >= 5000 ? "text-ucla-gold" : "text-paper"}`}>{formatPoints(r.score)}</p>
+                  <div className="text-right">
+                    <p className={`display numeric text-3xl leading-none ${r.score >= 5000 ? "text-ucla-gold" : "text-paper"}`}>{formatPoints(r.score)}</p>
+                    {damage !== null && <p className={`numeric text-xs font-semibold ${damage ? "text-alarm" : "text-sky"}`}>{damage ? `−${formatPoints(damage)} health` : "no damage"}</p>}
+                  </div>
                 </div>
               </li>
             );

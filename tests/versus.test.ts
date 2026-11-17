@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { rankOf } from "../src/components/versus/SeatBadge";
 import { mergeState } from "../src/lib/game/api";
-import type { GameState, RoundResult } from "../src/lib/game/types";
+import type { GameState, RoundResult, VersusPlayer } from "../src/lib/game/types";
+import { formatMultiplier, healthShare, healthTone, isOut, standingRank, standings } from "../src/lib/versus/health";
 import { initialOf, normalizeRoomCode, ROOM_CODE_LETTERS, SEAT_COLORS, seatColor } from "../src/lib/versus/types";
 
 describe("room codes", () => {
@@ -85,5 +86,47 @@ describe("taking a new game state from the server", () => {
   it("starts over for a different game", () => {
     const other = { ...base, id: "h", serverNow: 5 };
     expect(mergeState(base, other)).toBe(other);
+  });
+});
+
+describe("health battle helpers", () => {
+  const player = (seat: number, health: number | null, place: number | null = null, eliminatedRound: number | null = null): VersusPlayer => ({
+    seat, username: `p${seat}`, total: 0, health, eliminatedRound, place, isYou: false, isHost: false, away: false, locked: false,
+  });
+
+  it("writes multipliers without trailing zeros", () => {
+    expect([1, 1.5, 2, 2.25, 10.5].map(formatMultiplier)).toEqual(["×1", "×1.5", "×2", "×2.25", "×10.5"]);
+  });
+
+  it("measures health against the starting health, kept between 0 and 1", () => {
+    expect(healthShare(3000, 6000)).toBe(0.5);
+    expect(healthShare(0, 6000)).toBe(0);
+    expect(healthShare(7000, 6000)).toBe(1);
+    expect(healthShare(null, 6000)).toBe(0);
+    expect(healthShare(100, null)).toBe(0);
+    expect([0.9, 0.4, 0.1, 0].map(healthTone)).toEqual(["good", "low", "critical", "critical"]);
+  });
+
+  it("orders players still in by health, then those knocked out by place", () => {
+    const players = [player(1, 0, 4, 3), player(2, 2500), player(3, 0, 3, 5), player(4, 5100)];
+    expect(standings(players).map((p) => p.seat)).toEqual([4, 2, 3, 1]);
+    expect(players.map((p) => standingRank(p, players))).toEqual([4, 2, 3, 1]);
+  });
+
+  it("puts the winner first at the end, sharing a place on a tie", () => {
+    const players = [player(1, 0, 2, 7), player(2, 1200, 1), player(3, 0, 2, 7)];
+    expect(standings(players).map((p) => p.seat)).toEqual([2, 1, 3]);
+    expect(players.map((p) => standingRank(p, players))).toEqual([2, 1, 2]);
+  });
+
+  it("falls back to totals for a game from before health", () => {
+    const old = [{ ...player(1, null, 2), total: 9000 }, { ...player(2, null, 1), total: 12000 }];
+    expect(standings(old).map((p) => p.seat)).toEqual([2, 1]);
+  });
+
+  it("knows who is out", () => {
+    expect(isOut(player(1, 0, 3, 2))).toBe(true);
+    expect(isOut(player(1, 100))).toBe(false);
+    expect(isOut(null)).toBe(false);
   });
 });

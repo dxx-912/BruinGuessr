@@ -8,7 +8,7 @@ import VersusHome from "./VersusHome";
 export const metadata = pageMetadata({
   title: "Versus",
   shareTitle: "Play BruinGuessr versus",
-  description: "Race two to five friends on the same five photos from around UCLA's campus, on the same clock. Closest pins win the room.",
+  description: "Two to five friends, the same photos from around UCLA's campus, the same clock. Miss by more than the best pin and you lose health. Last one standing wins.",
   path: "/versus",
 });
 
@@ -19,7 +19,7 @@ export default function VersusPage() {
         <h1 className="display mt-1 text-[clamp(3.6rem,11vw,6.5rem)]">
           Play <span className="text-ucla-gold">versus</span>
         </h1>
-        <p className="mt-4 max-w-xl text-xl text-sky">Everyone gets the same five photos and the same 30 seconds. Closest pins win the room.</p>
+        <p className="mt-4 max-w-xl text-xl text-sky">Everyone starts with full health and sees the same photo. Each round, the best pin is safe and everyone else loses the points they fell short by. Last one standing wins.</p>
         <Suspense fallback={<div className="mt-8 h-64 animate-pulse rounded-[20px] bg-navy" />}>
           <Gate />
         </Suspense>

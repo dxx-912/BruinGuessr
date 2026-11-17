@@ -260,6 +260,11 @@ export default function LobbyClient({ code }: { code: string | null }) {
           )}
         </ol>
 
+        <p className="mt-4 text-sky">
+          <span className="font-semibold text-paper">Last one standing wins.</span> Everyone starts with full health. Each round the best pin is safe, and everyone else
+          loses the points they fell short by. The first guess in cuts everyone else&rsquo;s clock, and damage grows the longer the game goes.
+        </p>
+
         {/* On a phone the seats can push this below the screen, so it stays pinned to the bottom. */}
         <div className="sticky bottom-0 -mx-5 mt-6 bg-night px-5 pb-3 pt-3 sm:static sm:mx-0 sm:mt-8 sm:bg-transparent sm:p-0">
           {room.isHost ? (

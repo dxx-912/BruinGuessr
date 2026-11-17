@@ -27,7 +27,8 @@ The one image that belongs only to this game is the **campus outline** (drawn fr
 | `ucla-gold` | `#FFD100` | Primary buttons, scores, the answer flag, the wordmark's second half |
 | `gold-deep` | `#B38F00` | The lip under gold buttons |
 | `paper` | `#F4F8FC` | Primary text on dark |
-| `alarm` | `#FF5A4D` | Last five seconds of the timer, errors |
+| `alarm` | `#FF5A4D` | Last five seconds of the timer, errors, versus damage and knock-outs, a multiplier above ×1 |
+| `health` | `#3ED68A` | Versus health (bars and numbers) while above half. Gold below half, alarm below a fifth. Phase 6c revisits it. |
 
 Gold always carries dark text (`night`). Blue and navy carry `paper` text.
 
@@ -85,11 +86,20 @@ Marks and pins carry white letters and a white ring. A player's own pin is a lit
 
 **Lobby.** The room code as five scoreboard tiles (gold letters on navy, with a lip). Under it the link with "Copy link" and, where the device has one, "Share". Five seats in a grid: filled seats show the mark, the name and a gold "Host" pill; open seats are dashed. The host has one wide gold "Start game"; everyone else reads "Waiting for NAME to start the game…". On a phone the start area stays pinned to the bottom.
 
-**Round.** As solo, plus a player strip at top left: every player's mark, with a small gold tick once they have guessed (names and "Guessing / Guessed / Away" beside it on wide screens). After guessing, the button reads "Locked in. Waiting for 2 players" and the clock keeps running.
+**Health (Phase 6b).** Versus is a health battle, so health is the number that matters on every versus screen; points are what causes damage. A health bar is a thin pill on `night` with a 1 px `navy-line` ring that drains from the right: `health` green above half, gold to a fifth, alarm red below. Damage is always alarm red with a minus sign ("−1,234"). A player who is out is greyed (their mark in greyscale, name struck through in the strip) and says "Out" or "Out in round 7". Multipliers read "×1.5" and turn alarm red once above ×1.
 
-**Reveal.** The map shows every pin in its seat colour, each with a dashed line in the same colour drawn to the gold flag. The panel holds this player's points, then the scoreboard (rank, mark, name, distance, points this round, running total, best first, own row highlighted), then what comes next: a gold "Next round" for the host, a countdown for everyone else.
+**Round.** As solo, plus:
+- Top left, under the bar: a player strip. Phone: every mark with a gold tick once they have guessed and a thin health bar under it. Wide screens: name, health bar and number, and "Guessing / Guessed / Away / Out".
+- Top right, instead of the five round pips: the round number, its multiplier and this player's health ("Watching / Out" once knocked out). On a phone it is one narrow column ("Round 6 · ×2" over the health) so the clock keeps the middle.
+- The "Round N" card says "Damage ×1.5" instead of "of 5".
+- When someone locks in and the server cuts the clock, the timer jumps to 0:10 (its bar keeps the 30 second scale, so it drops to a third), a short double beep plays, and a red pill reads "Mia locked in. Hurry!": under the timer on wide screens, at the top of the map on a phone.
+- After guessing, the button reads "Locked in. Waiting for 2 players". Knocked out, it reads "You're out. Watching this round" and the map takes no pin.
 
-**Final standings.** The summary screen with the standings above the rounds: the winner's row has a gold border and a "Winner" pill. Pointing at a round on the list shows everyone's pins for it on the map. Buttons: gold "Rematch", blue "Home".
+**Reveal.** The map shows every pin in its seat colour, each with a dashed line in the same colour drawn to the gold flag. The panel holds this player's points with the damage they took ("−182 health" or "no damage"), then the scoreboard, best standing first: rank, mark, name, distance (wide screens), points this round, damage, and the health bar with its number (number only on a phone). A player knocked out this round reads "Out!" in red; one out earlier is dimmed with "Out in round N". Then what comes next: a gold "Next round" for the host, a countdown for everyone else, with the next round's multiplier under it. Stamps: "Bullseye!" (gold), "Knocked out" (red, with a falling tone), "Winner!" (gold, with confetti).
+
+**Final standings.** The summary screen, versus version: the headline is the place ("1st", gold for the winner) "of 4 players · 9 rounds", with "You won the room" or "Knocked out in round 7" above it, never a points total or a leaderboard line. Then the standings in finishing order: the winner's row has a gold border, a "Winner" pill and the health they finished with; everyone else reads "Out in round N", most recent knock-out first. Then "Your rounds" (only the rounds this player played), each with its points and the damage it cost. Pointing at a round shows everyone's pins for it on the map. Buttons: gold "Rematch", blue "Home".
+
+**Lobby rules line.** Under the seats, one short paragraph: "Last one standing wins." and how damage works, for players who arrive by link and never see the versus page.
 
 ## Icon, share images, 404
 

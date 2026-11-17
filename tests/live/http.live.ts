@@ -333,12 +333,15 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
 
     // One guess in: the round stays open, and the other player learns only that it happened.
     const first = (await (await call(alice, "POST", `/api/games/${id}/guess`, { round: 1, lat: 34.0722, lng: -118.4423 })).json()) as GameState;
-    expect(first.round).toMatchObject({ number: 1, locked: true });
+    expect(first.round).toMatchObject({ number: 1, locked: true, shortened: true });
     const waiting = await call(bob, "GET", `/api/games/${id}`);
     const seen = await waiting.text();
     expect(seen).not.toContain("34.0722");
     expect(seen).not.toMatch(/answer|photographer/);
     expect((JSON.parse(seen) as GameState).versus?.players.map((p) => p.locked)).toEqual([true, false]);
+    // The first guess cut the other player's clock too, and both start at full health.
+    expect((JSON.parse(seen) as GameState).round).toMatchObject({ shortened: true, deadlineAt: first.round!.deadlineAt });
+    expect((JSON.parse(seen) as GameState).versus?.players.map((p) => p.health)).toEqual([6000, 6000].map(() => (JSON.parse(seen) as GameState).versus!.startHealth));
     // No account ID ever leaves the server.
     const users = await admin.auth.admin.listUsers({ perPage: 200 });
     for (const u of users.data.users) expect(seen).not.toContain(u.id);

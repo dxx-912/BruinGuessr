@@ -12,12 +12,14 @@ import Timer from "@/components/game/Timer";
 import PlayerStrip from "@/components/versus/PlayerStrip";
 import { SeatBadge } from "@/components/versus/SeatBadge";
 import VersusRevealPanel from "@/components/versus/VersusRevealPanel";
+import VersusTracker from "@/components/versus/VersusTracker";
 import LoadingMark from "@/components/LoadingMark";
 import Wordmark, { PinMark } from "@/components/Wordmark";
 import { api, ApiError, mergeState, serverClock } from "@/lib/game/api";
 import { sound } from "@/lib/game/sound";
 import { phaseOf, type GameState, type LatLng } from "@/lib/game/types";
 import { useRoomPing } from "@/lib/versus/realtime";
+import { formatMultiplier, isOut } from "@/lib/versus/health";
 import { initialOf } from "@/lib/versus/types";
 
 /**
@@ -27,6 +29,8 @@ import { initialOf } from "@/lib/versus/types";
  *   locking  the player pressed Guess and the server is scoring it
  *   locked   versus only: the guess is in, and the round is waiting for the other players
  *   timeup   the clock hit zero; waiting for the server to score the round
+ *
+ * A versus player who has been knocked out watches: the photo and clock run, but the map takes no pin.
  */
 type Stage = "intro" | "play" | "locking" | "locked" | "timeup";
 
@@ -103,6 +107,9 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
   const roundNumber = round?.number ?? null;
   const versus = state?.versus ?? null;
   const isVersus = state?.mode === "versus";
+  const me = versus?.players.find((p) => p.isYou) ?? null;
+  /** Versus: knocked out, and watching the rest of the game. */
+  const watching = isOut(me);
 
   /** Takes a state from the server. Answers that arrive out of order never move the screen backwards. */
   const apply = useCallback((next: GameState) => setState((current) => mergeState(current, next)), []);
@@ -114,6 +121,7 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
       if (code === "unauthorized") router.replace(`/login?next=${encodeURIComponent(`/game/${gameId}`)}`);
       else if (code === "not_found") setFatal("not_found");
       else if (code === "rate_limited") setNotice("That's a lot of guest games. Sign up to keep playing, or try again in a little while.");
+      else if (code === "eliminated") setNotice("You're out of health. You can watch the rest of the game.");
       else setNotice(code === "network" ? "Connection problem. Check your internet." : "Something went wrong. Try again.");
     },
     [gameId, router],
@@ -208,7 +216,23 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
   const savedPin = round?.pin ?? null;
   const savedLock = round?.locked ?? false;
 
-  // A round opened (or the page was reloaded during one): fetch its photo and run its clock.
+  // A round opened (or the page was reloaded during one): set the screen up for it.
+  useEffect(() => {
+    if (roundNumber === null) return;
+    const id = window.setTimeout(() => {
+      setPin(savedPin);
+      setMapOpen(false);
+      setLightbox(null);
+      setStage(serverClock.now() < startsAt ? "intro" : savedLock ? "locked" : "play");
+    }, 0);
+    return () => window.clearTimeout(id);
+    // Read once when the round opens. In versus the deadline moves when someone guesses, and
+    // later pin saves change savedPin; neither may reset the round on screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, roundNumber]);
+
+  // Run the round's clock. In versus the first guess makes the server cut everyone's deadline;
+  // the new deadline arrives with the next state, and only these timers start over.
   useEffect(() => {
     if (roundNumber === null) return;
     let cancelled = false;
@@ -216,12 +240,6 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
     const after = (ms: number, run: () => void) => timers.push(window.setTimeout(run, Math.max(0, ms)));
 
     const now = serverClock.now();
-    after(0, () => {
-      setPin(savedPin);
-      setMapOpen(false);
-      setLightbox(null);
-      setStage(now < startsAt ? "intro" : savedLock ? "locked" : "play");
-    });
     if (now < startsAt) {
       after(startsAt - now, () => {
         setStage("play");
@@ -250,9 +268,16 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
       cancelled = true;
       timers.forEach((id) => window.clearTimeout(id));
     };
-    // savedPin and savedLock are read once when the round opens; later saves must not restart the round.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, roundNumber, startsAt, deadlineAt, graceMs, refresh]);
+
+  // Versus: someone locked in and the clock dropped. Say so once per round, with a sound.
+  const shortened = round?.shortened === true;
+  const hurried = useRef<number | null>(null);
+  useEffect(() => {
+    if (!shortened || roundNumber === null || hurried.current === roundNumber) return;
+    hurried.current = roundNumber;
+    if (stage === "play" && !watching) sound.hurry();
+  }, [shortened, roundNumber, stage, watching]);
 
   // The round's photo. A dropped connection gets a few quiet retries; after that the screen
   // says so and offers "Try again". The clock decides when the round is over either way.
@@ -284,7 +309,7 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
 
   const placePin = useCallback(
     (next: LatLng) => {
-      if (roundNumber === null || stage !== "play") return;
+      if (roundNumber === null || stage !== "play" || watching) return;
       setPin(next);
       sound.pin();
       // Saved straight away, one after another, so the latest pin is on the server when the clock hits zero.
@@ -294,11 +319,11 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
         }),
       );
     },
-    [gameId, roundNumber, stage, refresh],
+    [gameId, roundNumber, stage, watching, refresh],
   );
 
   const guess = useCallback(async () => {
-    if (roundNumber === null || stage !== "play" || !pin) return;
+    if (roundNumber === null || stage !== "play" || !pin || watching) return;
     setStage("locking");
     sound.lock();
     await pinSaves.current;
@@ -312,7 +337,7 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
       handleError(err);
       setStage((current) => (current === "locking" ? "play" : current));
     }
-  }, [gameId, roundNumber, stage, pin, apply, handleError]);
+  }, [gameId, roundNumber, stage, pin, watching, apply, handleError]);
 
   const next = useCallback(() => {
     if (!state || busy) return;
@@ -458,8 +483,8 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
   const mapView = useMemo<MapView>(() => {
     if (summary && results) return { kind: "summary", results, focus, players: mapPlayers };
     if (revealOnMap) return { kind: "reveal", result: revealOnMap, players: mapPlayers };
-    return { kind: "guess", pin, canPlace: guessing && stage === "play", player: mapMe };
-  }, [summary, results, focus, revealOnMap, pin, guessing, stage, mapPlayers, mapMe]);
+    return { kind: "guess", pin, canPlace: guessing && stage === "play" && !watching, player: mapMe };
+  }, [summary, results, focus, revealOnMap, pin, guessing, stage, watching, mapPlayers, mapMe]);
 
   const playerCount = versus?.players.length ?? 0;
   const mapInset = useMemo(() => {
@@ -516,10 +541,11 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
           mapOpen ? "h-[74%] md:h-[min(64vh,640px)] md:w-[min(58vw,860px)]" : "h-[54%] md:h-[min(300px,60vh)] md:w-[400px]"
         }`;
   const photoUrl = roundNumber !== null ? photos[roundNumber] : undefined;
-  const canGuess = stage === "play" && pin !== null;
-  const waitingFor = versus ? versus.players.filter((p) => !p.locked && !p.away).length : 0;
-  const guessLabel =
-    stage === "locking"
+  const canGuess = stage === "play" && pin !== null && !watching;
+  const waitingFor = versus ? versus.players.filter((p) => !p.locked && !p.away && !isOut(p)).length : 0;
+  const guessLabel = watching
+    ? "You're out. Watching this round"
+    : stage === "locking"
       ? "Locking in…"
       : stage === "locked"
         ? waitingFor > 0
@@ -531,6 +557,12 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
             ? "Guess"
             : "Place your pin on the map";
   const photoIsDown = roundNumber !== null && photoFailed === roundNumber && !photoUrl;
+  // Versus: once someone locks in, the server cuts everyone's clock. Tell those still guessing.
+  const lockedOthers = versus ? versus.players.filter((p) => p.locked && !p.isYou) : [];
+  const hurryLine =
+    guessing && shortened && stage === "play" && !watching && lockedOthers.length > 0
+      ? `${lockedOthers.length === 1 ? lockedOthers[0].username : `${lockedOthers.length} players`} locked in. Hurry!`
+      : null;
 
   return (
     <Shell>
@@ -574,6 +606,9 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
         >
           <div className={`relative min-h-0 flex-1 overflow-hidden ${guessing || phase === "ready" ? "rounded-2xl border-2 border-navy-line shadow-[0_10px_28px_rgb(2_10_20/0.5)]" : "h-full"}`}>
             <GameMap view={mapView} onPin={placePin} inset={mapInset} />
+            {guessing && hurryLine && (
+              <p className="pointer-events-none absolute left-1/2 top-2 z-10 max-w-[60%] -translate-x-1/2 animate-pop truncate rounded-full border-2 border-night bg-alarm px-2.5 py-0.5 text-xs font-bold text-night md:hidden">{hurryLine}</p>
+            )}
             {guessing && !canHover && (
               <button
                 type="button"
@@ -637,22 +672,34 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
           </div>
           {state && (
             <div className="pointer-events-auto">
-              <RoundTracker roundCount={state.roundCount} currentRound={state.currentRound} results={state.results} totalScore={state.totalScore} />
+              {versus ? (
+                <VersusTracker currentRound={state.currentRound} multiplier={round?.multiplier ?? reveal?.multiplier ?? null} versus={versus} />
+              ) : (
+                <RoundTracker roundCount={state.roundCount ?? 0} currentRound={state.currentRound} results={state.results} totalScore={state.totalScore} />
+              )}
             </div>
           )}
         </header>
       )}
 
       {guessing && round && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2">
-          <Timer key={round.number} startsAt={round.startsAt} deadlineAt={round.deadlineAt} running={stage === "play" || stage === "intro" || stage === "locked"} />
+        <div className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5">
+          <Timer
+            key={round.number}
+            startsAt={round.startsAt}
+            deadlineAt={round.deadlineAt}
+            totalMs={state ? state.roundSeconds * 1000 : undefined}
+            running={stage === "play" || stage === "intro" || stage === "locked"}
+          />
+          {/* Wider screens: under the clock. On a phone the same line sits on the map. */}
+          {hurryLine && <p className="hidden animate-pop whitespace-nowrap rounded-full border-2 border-night bg-alarm px-3 py-0.5 text-sm font-bold text-night md:block">{hurryLine}</p>}
         </div>
       )}
 
       {/* Versus: who is playing, and who has guessed */}
       {guessing && versus && (
         <div className="pointer-events-none absolute left-3 top-[4.75rem] z-30 sm:top-[4.4rem]">
-          <PlayerStrip players={versus.players} />
+          <PlayerStrip players={versus.players} startHealth={versus.startHealth} />
         </div>
       )}
 
@@ -663,12 +710,18 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
             <div key={state.currentRound} className="animate-pop text-center">
               <p className="display text-3xl text-sky">Round</p>
               <p className="display text-[11rem] leading-[0.8] text-ucla-gold">{state.currentRound}</p>
-              <p className="display mt-3 text-2xl text-sky">of {state.roundCount}</p>
-              <p className="mt-6 font-semibold text-paper">Where on campus was this photo taken?</p>
+              {versus ? (
+                <p className="display mt-3 text-2xl text-sky">
+                  Damage <span className={(round?.multiplier ?? 1) > 1 ? "text-alarm" : "text-paper"}>{formatMultiplier(round?.multiplier ?? 1)}</span>
+                </p>
+              ) : (
+                <p className="display mt-3 text-2xl text-sky">of {state.roundCount}</p>
+              )}
+              <p className="mt-6 font-semibold text-paper">{watching ? "You're out. Watch where everyone else thinks it is." : "Where on campus was this photo taken?"}</p>
               {versus && (
                 <ul aria-label="Players" className="mt-5 flex justify-center gap-2">
                   {versus.players.map((p) => (
-                    <li key={p.seat} title={p.username}>
+                    <li key={p.seat} title={p.username} className={isOut(p) ? "opacity-40 grayscale" : ""}>
                       <SeatBadge seat={p.seat} name={p.username} className="h-9 w-9 text-xl" />
                     </li>
                   ))}
@@ -692,7 +745,6 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
           key={reveal.round}
           gameId={gameId}
           result={reveal}
-          roundCount={state.roundCount}
           versus={versus}
           finished={state.status === "completed"}
           photoUrl={photos[reveal.round]}
@@ -708,7 +760,7 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
           key={reveal.round}
           gameId={gameId}
           result={reveal}
-          roundCount={state.roundCount}
+          roundCount={state.roundCount ?? 0}
           photoUrl={photos[reveal.round]}
           onOpenPhoto={() => setLightbox(reveal.round)}
           onNext={next}
@@ -748,7 +800,7 @@ export default function GameClient({ gameId, guest = false }: { gameId: string; 
             </h2>
             <p id="leave-body" className="mt-2 text-sky">
               {isVersus
-                ? "Your seat is kept. Come back through the room link and you only get 0 for the rounds you missed."
+                ? "Your seat is kept and you can come back through the room link, but every round you miss scores 0 and costs you health."
                 : "The clock keeps running, and a game you do not finish does not count."}
             </p>
             <div className="mt-5 flex gap-3">

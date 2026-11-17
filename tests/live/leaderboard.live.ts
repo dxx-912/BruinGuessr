@@ -103,7 +103,7 @@ describe("picking a username", () => {
 describe("the leaderboard", () => {
   // first: 21,000 (an earlier 20,000 and a later 21,000 tie-break below)
   // tieEarly / tieLate: both 18,000; tieEarly got there first
-  // versus: best is a versus game at 22,000
+  // versus: a solo 12,000 and a versus game at 22,000; only the solo game counts
   // abandoned: only an abandoned 24,000 and an unfinished 23,000, so not listed
   // nameless: a completed game but no username, so not listed
   const p: Record<string, string> = {};
@@ -136,20 +136,21 @@ describe("the leaderboard", () => {
     const all = await board(null, 100, 0);
     const order = mine(all).map((r) => [r.username, r.score]);
     expect(order).toEqual([
-      [names.versus, 22_000],
       [names.first, 21_000],
       [names.tieEarly, 18_000],
       [names.tieLate, 18_000],
+      [names.versus, 12_000],
     ]);
     const ranks = mine(all).map((r) => r.rank);
     expect(ranks).toEqual([...ranks].sort((x, y) => x - y));
     expect(new Set(ranks).size).toBe(ranks.length);
   });
 
-  it("counts a versus game as the player's own total, with no schema change", async () => {
+  it("counts solo games only: a better versus game does not replace a solo best", async () => {
     const all = await board(p.versus, 100, 0);
-    expect(all.you?.mode).toBe("versus");
-    expect(all.you?.gameId).toBe(versusGame);
+    expect(all.you).toMatchObject({ mode: "solo", score: 12_000 });
+    expect(all.you?.gameId).not.toBe(versusGame);
+    expect(all.rows.some((r) => r.mode === "versus")).toBe(false);
   });
 
   it("dates a record from the first game that reached it", async () => {

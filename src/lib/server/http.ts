@@ -29,6 +29,7 @@ const STATUS: Record<GameError, number> = {
   not_in_room: 403,
   not_host: 403,
   need_players: 409,
+  eliminated: 409,
   server_error: 500,
 };
 
@@ -87,8 +88,9 @@ export const isUuid = (value: unknown): value is string => typeof value === "str
 
 /** A round number from a URL or request body, or null if it is not one. */
 export function roundNumber(value: unknown): number | null {
-  const n = typeof value === "string" && /^\d{1,3}$/.test(value) ? Number(value) : value;
-  return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 100 ? n : null;
+  const n = typeof value === "string" && /^\d{1,4}$/.test(value) ? Number(value) : value;
+  // A versus game has no fixed length; it ends when the photos do at the latest.
+  return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 9999 ? n : null;
 }
 
 /** A versus room code from a URL, in capitals, or null if it could not be one. */

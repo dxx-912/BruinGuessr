@@ -8,7 +8,7 @@ import { pageMetadata } from "@/lib/site";
 
 export const metadata = pageMetadata({
   title: "Leaderboard",
-  description: "The best BruinGuessr scores out of 25,000. One row per player: their best game, solo or versus.",
+  description: "The best BruinGuessr solo scores out of 25,000. One row per player: their best solo game.",
   path: "/leaderboard",
 });
 
@@ -18,7 +18,7 @@ export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboar
         <h1 className="display text-[clamp(3rem,10vw,5.5rem)]">
           Leader<span className="text-ucla-gold">board</span>
         </h1>
-        <p className="mt-2 text-sky">Each player&rsquo;s best game out of 25,000. Equal scores go to whoever got there first.</p>
+        <p className="mt-2 text-sky">Each player&rsquo;s best solo game out of 25,000. Equal scores go to whoever got there first. Versus games are played for the win, not for the board.</p>
 
         <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-[20px] bg-navy" />}>
           <Board searchParams={searchParams} />
@@ -45,7 +45,6 @@ function Row({ row }: { row: LeaderboardRow }) {
           {row.username}
         </Link>
         {row.isYou && <span className="ml-2 rounded-full bg-paper px-2 py-0.5 text-xs font-bold text-night">You</span>}
-        {row.mode === "versus" && <span className="ml-2 text-xs font-semibold text-sky">versus</span>}
       </span>
       <span className={`hidden text-sm sm:block ${row.isYou ? "text-paper" : "text-sky"}`}>{dateFormat.format(row.reachedAt)}</span>
       <span className={`display numeric text-right text-3xl ${row.rank === 1 && !row.isYou ? "text-ucla-gold" : ""}`}>{formatPoints(row.score)}</span>

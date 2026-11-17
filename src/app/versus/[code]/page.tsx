@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps<"/versus/[code]">):
   return pageMetadata({
     title: `Room ${code}`,
     shareTitle: "Join my BruinGuessr game",
-    description: `Room ${code}. Five photos from around UCLA's campus, 30 seconds each, everyone on the same clock. Closest pins win.`,
+    description: `Room ${code}. Photos from around UCLA's campus, everyone on the same clock. Miss by more than the best pin and you lose health. Last one standing wins.`,
     path: `/versus/${code}`,
     index: false,
   });
@@ -65,7 +65,7 @@ function Invitation({ code, next }: { code: string; next: string }) {
           ))}
         </p>
         <p className="mt-6 max-w-xl text-xl text-sky">
-          Everyone gets the same five photos from around UCLA&rsquo;s campus and the same 30 seconds to pin each one on the map. Closest pins win the room.
+          Everyone sees the same photo from around UCLA&rsquo;s campus and has 30 seconds to pin it on the map. The best pin is safe; everyone else loses health. Last one standing wins.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <Link href={`/login?mode=signup&reason=versus&next=${encodeURIComponent(next)}`} className="btn btn-gold !px-6 !py-4 !text-2xl">

@@ -160,10 +160,10 @@ export function roomShareImage(code: string | null): Promise<ImageResponse> {
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", marginTop: 30, fontSize: 38, color: SKY }}>Race two to five friends on the same five photos.</div>
+            <div style={{ display: "flex", marginTop: 30, fontSize: 38, color: SKY }}>Two to five friends. Last one standing wins.</div>
           )}
         </div>
-        <div style={{ display: "flex", fontSize: 30, color: SKY }}>Five campus photos. 30 seconds each. Closest pins win the room.</div>
+        <div style={{ display: "flex", fontSize: 30, color: SKY }}>Same photo, same clock. Miss the best pin and you lose health.</div>
       </div>
     </Frame>,
   );

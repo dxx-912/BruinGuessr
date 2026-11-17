@@ -9,6 +9,12 @@ type Props = {
   /** Server times (ms) when the clock starts and when it hits zero. */
   startsAt: number;
   deadlineAt: number;
+  /**
+   * The round's full length. The bar is drawn against it, so when a versus
+   * round's deadline is cut to 10 seconds the bar drops to a third rather
+   * than starting full again.
+   */
+  totalMs?: number;
   /** False once the guess is locked in: the clock keeps its place but stops counting. */
   running: boolean;
 };
@@ -17,8 +23,8 @@ type Props = {
  * The countdown pill. It only displays time; the server decides when a round is
  * over. Gold for the last ten seconds, red and ticking for the last five.
  */
-export default function Timer({ startsAt, deadlineAt, running }: Props) {
-  const total = deadlineAt - startsAt;
+export default function Timer({ startsAt, deadlineAt, totalMs, running }: Props) {
+  const total = Math.max(totalMs ?? 0, deadlineAt - startsAt);
   const [msLeft, setMsLeft] = useState(total);
   const lastTick = useRef<number | null>(null);
 
@@ -26,10 +32,10 @@ export default function Timer({ startsAt, deadlineAt, running }: Props) {
     if (!running) return;
     let frame = 0;
     const update = () => {
-      const left = Math.min(total, Math.max(0, deadlineAt - serverClock.now()));
+      const left = Math.min(total, deadlineAt - startsAt, Math.max(0, deadlineAt - serverClock.now()));
       setMsLeft(left);
       const seconds = Math.ceil(left / 1000);
-      if (left < total && seconds <= 5 && seconds >= 1 && lastTick.current !== seconds) {
+      if (left < deadlineAt - startsAt && seconds <= 5 && seconds >= 1 && lastTick.current !== seconds) {
         lastTick.current = seconds;
         sound.tick(seconds === 1);
       }
@@ -37,7 +43,7 @@ export default function Timer({ startsAt, deadlineAt, running }: Props) {
     };
     frame = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frame);
-  }, [deadlineAt, total, running]);
+  }, [startsAt, deadlineAt, total, running]);
 
   const seconds = Math.ceil(msLeft / 1000);
   const urgent = seconds <= 5;

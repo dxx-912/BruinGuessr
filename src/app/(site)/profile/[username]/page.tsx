@@ -104,7 +104,8 @@ function ProfileView({ profile }: { profile: PlayerProfile }) {
 
 /** One finished game. Opens to show its rounds: distance and points only, never where the photo was. */
 function RecentGame({ game }: { game: ProfileGame }) {
-  const max = game.roundCount * 5000;
+  // A versus game has no fixed length: it shows where the player finished, not points out of a maximum.
+  const max = game.roundCount === null ? null : game.roundCount * 5000;
   return (
     <li>
       <details className="panel group !rounded-[16px]">
@@ -123,10 +124,16 @@ function RecentGame({ game }: { game: ProfileGame }) {
             </span>
             <span className="block text-sm text-sky">{formatDay(game.completedAt)}</span>
           </span>
-          <span className="display numeric text-3xl">
-            {formatPoints(game.total)}
-            <span className="ml-1 font-sans text-sm font-semibold normal-case not-italic text-sky">/ {formatPoints(max)}</span>
-          </span>
+          {max === null ? (
+            <span className="text-right text-sm font-semibold text-sky">
+              {game.rounds.length} {game.rounds.length === 1 ? "round" : "rounds"}
+            </span>
+          ) : (
+            <span className="display numeric text-3xl">
+              {formatPoints(game.total)}
+              <span className="ml-1 font-sans text-sm font-semibold normal-case not-italic text-sky">/ {formatPoints(max)}</span>
+            </span>
+          )}
         </summary>
         <ol className="border-t-2 border-navy-line px-4 py-2">
           {game.rounds.map((r) => (

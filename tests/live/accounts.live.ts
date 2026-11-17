@@ -55,7 +55,7 @@ async function newGuest(ip = network()): Promise<string> {
 /** Plays a whole solo game, guessing every round at the answer's latitude shifted north by `offsetM` meters. */
 async function playGame(game: string, user: string, offsetM = 0): Promise<GameState> {
   let state = await rpc<GameState>("game_state", { p_game: game, p_user: user });
-  for (let n = 1; n <= state.roundCount; n++) {
+  for (let n = 1; n <= (state.roundCount ?? 0); n++) {
     await rpc("start_round", { p_game: game, p_user: user });
     const round = await admin.from("game_rounds").select("images(lat, lng)").eq("game_id", game).eq("round_no", n).single();
     const answer = round.data!.images as unknown as { lat: number; lng: number };
@@ -221,6 +221,8 @@ describe("profiles", () => {
     const pa = await rpc<PlayerProfile>("player_profile", { p_username: a.username, p_viewer: null, p_recent: 10 });
     const pb = await rpc<PlayerProfile>("player_profile", { p_username: b.username, p_viewer: null, p_recent: 10 });
     expect([pa.stats.versusPlayed, pa.stats.versusWon]).toEqual([1, 1]);
+    // Versus games never count toward the best game (the leaderboard is solo only).
+    expect(pa.stats.bestScore).toBeNull();
     expect([pb.stats.versusPlayed, pb.stats.versusWon]).toEqual([1, 0]);
     expect(pb.recent[0]).toMatchObject({ mode: "versus", place: 2, players: 2 });
   });

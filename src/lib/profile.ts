@@ -12,7 +12,8 @@ export type ProfileGame = {
   /** ms since 1970 */
   completedAt: number;
   total: number;
-  roundCount: number;
+  /** Null for a versus game: it runs until one player is left. */
+  roundCount: number | null;
   /** Versus only: 1 is first (ties share a place). */
   place: number | null;
   players: number | null;

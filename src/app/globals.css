@@ -11,6 +11,8 @@
   --color-gold-deep: #b38f00;
   --color-paper: #f4f8fc;
   --color-alarm: #ff5a4d;
+  /* Versus health (Phase 6b). Damage uses alarm. Phase 6c revisits the palette. */
+  --color-health: #3ed68a;
   /* Used by the development review pages. */
   --color-ink: #0b1f33;
 

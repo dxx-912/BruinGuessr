@@ -18,7 +18,7 @@ Read SPEC.md first, then this file.
 - Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
 - `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All nine pass (since 2026-11-16).
-- `npm test`: 111 tests. `npm run test:live`: 80 tests against the real database (counts as of Phase 6a).
+- `npm test`: 117 tests. `npm run test:live`: 90 tests against the real database (counts as of Phase 6b).
 
 ### Decided by Daniel (2026-11-15)
 
@@ -98,7 +98,9 @@ Read SPEC.md first, then this file.
 
 **Phase 5 (polish and deploy): built 2026-11-16. Daniel moved on to Iteration 2 on 2026-11-17.** Details in "Phase 5" below.
 
-**Iteration 2 (SPEC.md "Iteration 2"), Phase 6a (site structure and accounts): done and approved by Daniel 2026-11-17.** Details in "Phase 6a" below. Daniel pushes it himself. Phases 6b (versus health battle) and 6c (visual pass) are not started.
+**Iteration 2 (SPEC.md "Iteration 2"), Phase 6a (site structure and accounts): done and approved by Daniel 2026-11-17.** Details in "Phase 6a" below. Daniel pushes it himself.
+
+**Phase 6b (versus health battle): built 2026-11-17, committed, not pushed, waiting for Daniel's approval.** Details in "Phase 6b" below. The migration is applied (shared database), so the live site already plays versus by the new rules and the leaderboard is already solo only. Phase 6c (visual pass) is not started.
 
 The site is live at https://ucla-geoguessr.vercel.app with Google sign in working (Daniel, 2026-11-16). **The live site and `npm run dev` use the same Supabase database.** Migrations and test data land in production the moment they are applied or created.
 
@@ -264,6 +266,50 @@ What was added:
 6. Settings: your email; change your username (try a rude or taken one first); the form then shows the date of your next allowed change.
 7. Delete account: only with a dev test account. Open http://localhost:3000/api/dev/login?as=9 in a private window, pick a name, go to Settings → Delete account, type the name. You land on the home page, signed out.
 
+## Phase 6b (versus health battle)
+
+What was added:
+
+- **Rules, all in the database** (migration `20261117000300_versus_health.sql`, applied with Daniel's approval). Everyone starts with `versus_start_health` (6,000). After each round, each player loses (best score − own score) × the round's multiplier, rounded half up; the best scorer loses nothing. Multiplier = `versus_multiplier_base` (1.0) + `versus_multiplier_step` (0.5) × max(0, round − `versus_multiplier_from_round` (5) + 1): 1, 1, 1, 1, 1.5, 2, 2.5, … A round's multiplier is fixed when it opens. A player at 0 is out. The game ends when one player is left.
+- **The 10 second countdown is set by the server.** `lock_guess` moves the round's `deadline_at` to `greatest(now, clock start) + versus_first_lock_seconds` with `least()`, so only the first guess can move it and two guesses at the same moment cut it once. The round row records `cut_at`. The browser just shows the deadline it is sent; the per-round photo address and the deadline check use the same `deadline_at`.
+- **No round limit.** Versus games have `round_count` null. Each round's photo is picked when the round opens (`_pick_images` now never returns a photo already used in that game). If the pool runs out, `_versus_finish` ends the game on health.
+- **Places.** `game_players` gets `health`, `eliminated_round`, `final_place`; `guesses` gets `damage` and `health_after` (not clamped, so players knocked out in the same round can be ranked by how far below 0 they went).
+- **Knocked-out players watch.** They get the photo, clock and reveals; `place_pin` and `lock_guess` answer `eliminated` (409); rounds never wait for them.
+- **Leaderboard: solo only.** The view filters `mode = 'solo'`. On the live board, 5 of the 6 rows were versus scores before the migration; afterwards it had 2 rows, both solo (DanielXing now shows his best solo game, 17,891, in place of a versus 18,195). A live test checks the view has no versus rows at all. The profile's "Best game" is solo only too.
+- **Screens.** Top right in versus: round, multiplier, your health (one narrow column on a phone). Player strip: health bars, "Out". Round card: "Damage ×1.5". The first guess: the timer drops to 0:10 (bar keeps the 30 s scale), a double beep, a red "NAME locked in. Hurry!" pill. Reveal: distance, points, damage, health bar per player, "Out!", stamps for Knocked out / Winner. Final standings: place as the headline, winner with health left, then knock-out order, your rounds with damage. Lobby: a short rules line. Versus page, room invitation and share images reworded (no more "five photos"). Leaderboard copy says solo. DESIGN.md has the look; README.md the rules.
+
+### Decisions made in Phase 6b (say so if you want any changed)
+
+- **"Everyone reaches 0 in the same round" cannot happen under the damage rule**: the round's best scorer always loses nothing, so at least one player is still standing after every round. The tiebreak is built anyway (most health left after the damage wins; level shares first place) and tested by forcing everyone to 0 health first. Two or more players knocked out in the same round does happen and is ranked the same way.
+- A guess during the "Round N" card counts the 10 seconds from when the clock starts, so nobody's round can be shortened below 10 seconds of play.
+- A versus round in which nobody has guessed yet runs on its clock even if every player still in has dropped off. Without that, a room with only knocked-out players watching would race through rounds.
+- A player who is away still takes damage for the rounds they miss (they score 0), which is what knocks out someone who has left for good.
+- A knocked-out host stays host (they can still open the next round). Host handover is unchanged.
+- Old (Phase 4) finished versus games keep the places they had by total; the 6 versus games that were stuck at round 1 were switched to the health rules. A versus win on a profile is finishing 1st.
+- The colours for health are interim: `health` green (`#3ED68A`), gold below half, alarm red below a fifth; damage in alarm red. Phase 6c revisits the palette.
+
+### Checks run at the end of Phase 6b
+
+- Before asking to push, the migration was dry-run on an in-memory Postgres (PGlite, in the scratchpad, with stand-ins for Supabase's `auth` and `storage` schemas): all migrations applied, and scripted games covered damage, the cut, knock-outs, spectators, 25 rounds, the all-out tiebreak and running out of photos.
+- `npm test` (117 passed; new: multiplier labels, health bar tones, finishing order), `npm run test:live` (90 passed, with `npm run dev` running; 10 new health-battle checks, the Phase 4 versus checks reworked for games that go past round 5, leaderboard checks flipped to solo only), type-check, lint, production build, `npm run photos:report` (all nine anti-cheat checks pass). No secret and no database function name in the browser files.
+- The edge cases asked for, each a live test against the real database: two players locking in at the same moment as the first guess (one cut, the same deadline on every screen, the third player can still pin until it runs out); a first guess with under 10 seconds left (deadline unchanged); a guess during the round card (10 s from the clock's start); a player disconnecting during the countdown, with a pin (scored, not waited for) and without (0, full damage), and one coming back mid-countdown (keeps the cut clock); two players knocked out in the same round (ranked by health left, then they can see the photo but not pin or guess, and the next round does not wait for them); everyone at 0 in the same round (forced, see above); a 23-round game (multipliers 1 → 10.5, no photo repeated, a 150 m miss in round 23 costs more than 6,000); and a game that used every photo in the pool (160 rounds, ends on health).
+- Browser pass, headless Chrome against the production build, three players signed in as `dev-player-7/8/9` (two desktop, one at 375 × 548 with touch): lobby rules line; "Damage ×1" on the round card; the first guess dropping the other two clocks from 0:24 to 0:10 with the hurry pill on desktop and phone; "Locked in. Waiting for 2 players"; the reveal with damage, health and "Out!"; the Knocked out stamp; the knocked-out phone player watching round 2 ("You're out. Watching this round", tracker "Out"); the Winner stamp; final standings on all three (1st / Knocked out in round 2 / Knocked out in round 1, in knock-out order, no leaderboard line); no sideways scrolling on the phone; no console errors. Fixed along the way: the tracker ran under the timer on a phone, and the phone hurry pill covered the map's zoom buttons.
+- Test data: the live tests' accounts, rooms and versus games were deleted by the tests. The browser pass's 5 versus games were deleted by ID, and `dev-player-7/8/9` were deleted by the HTTP test's own clean-up.
+- **Note on the running dev server:** the `next dev` on port 3000 (started before this session) kept serving its old stylesheet without the new `health` colour, so health bars look empty there. Stopping it, `rm -rf .next/dev`, and `npm run dev` again fixes it. The production build is correct.
+- **Not tested by me:** a real phone, and versus between real Google accounts.
+
+### How to test Phase 6b
+
+1. Restart the dev server first (see the note above): stop it, `rm -rf .next/dev`, `npm run dev`.
+2. Open http://localhost:3000/api/dev/login?as=7 in one browser, `?as=8` in a private window, and `?as=9` in another browser or profile. Pick names. Host a room with 7, join with 8 and 9, start.
+3. The round card says "Damage ×1"; top right shows the round, ×1 and 6,000 health. Guess with one player: the other two clocks drop to 0:10 with a red "… locked in. Hurry!" pill and a beep.
+4. The reveal shows each player's distance, points, damage and health. Play on: from round 5 the multiplier is ×1.5 and shows red. To get a knock-out quickly, let one player not guess for a few rounds.
+5. A knocked-out player sees "Knocked out", then watches: the photo and clock run, the map takes no pin, the button says "You're out. Watching this round".
+6. The last one standing gets "Winner!"; "Final standings" lists the winner, then everyone in the order they went out.
+7. `/leaderboard`: no versus scores, and the text says solo. A versus game shows on the profile under recent games with its place and number of rounds.
+8. To tune the game: change `versus_start_health`, `versus_multiplier_base`, `versus_multiplier_from_round`, `versus_multiplier_step` or `versus_first_lock_seconds` in the `settings` row (Supabase dashboard → Table Editor → settings). Changes apply from the next round or game.
+9. Delete the test accounts afterwards (or ask me to).
+
 ## Key decisions
 
 - Plan review decisions (2026-11-15) are folded into SPEC.md: Wikimedia required, own photos as a third source (`original`), about 40 m eligibility buffer, Google sign in only, perfect radius of 10 m in the score formula, reports counted per account.
@@ -289,7 +335,8 @@ What was added:
 - Overpass API mirrors were flaky; the boundary build uses the main OSM API by object ID instead, with downloads cached in `.cache/osm/`.
 - Mapillary: `on_foot` and `quality_score` are real API fields. Thumbnail URLs expire, so the script asks for a fresh one right before each download.
 - Phase 5 tooling: after many files were added or `globals.css` was edited several times, `next dev` got stuck twice: once reloading every page in a loop, once serving an old stylesheet. Stopping it, deleting `.next/dev` and starting again fixed both. Phone testing used headless Chrome with touch emulation at the size a page really gets with the browser's bars showing (for example 375 × 548 for an iPhone SE, not 375 × 667).
-- Supabase: `supabase db push --yes` works without the database password (login role). Docker is not installed, so there is no local Supabase; migrations go straight to the real project.
+- Supabase: `supabase db push --yes` works without the database password (login role). Docker is not installed, so there is no local Supabase; migrations go straight to the real project. To dry-run one first, `@electric-sql/pglite` (installed in the scratchpad, never in the repo) can apply every migration in memory with stub `auth.users`, `storage.buckets` and the three Supabase roles, then call the game functions; that is how the Phase 6b migration was checked before the push.
+- Browser testing: display text is uppercase by CSS, and `innerText` returns it uppercased, so compare text case-insensitively. Puppeteer's `page.click` on a phone-size page can land on the bottom tab bar; click through the DOM instead. The browser pass gives `dev-player-7/8/9` usernames, and the HTTP live test expects `dev-player-7` to have none, so delete 7–9 (and their versus games, which outlive the accounts) after a browser pass.
 
 ### Phase 1 decisions
 

@@ -24,6 +24,8 @@ type Room = RoomState & Partial<Failed>;
 type State = GameState & Partial<Failed>;
 
 const users: string[] = [];
+/** Versus games these tests start. They outlive their players' accounts, so they are deleted at the end. */
+const games: string[] = [];
 
 async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await admin.rpc(fn, args);
@@ -42,7 +44,11 @@ const createRoom = (user: string) => rpc<Room>("create_room", { p_user: user });
 const join = (code: string, user: string) => rpc<Room>("join_room", { p_code: code, p_user: user });
 const room = (code: string, user: string) => rpc<Room>("room_state", { p_code: code, p_user: user });
 const leave = (code: string, user: string) => rpc<{ ok?: true }>("leave_room", { p_code: code, p_user: user });
-const start = (code: string, user: string) => rpc<Room>("start_room_game", { p_code: code, p_user: user });
+async function start(code: string, user: string): Promise<Room> {
+  const room = await rpc<Room>("start_room_game", { p_code: code, p_user: user });
+  if (room.gameId && !games.includes(room.gameId)) games.push(room.gameId);
+  return room;
+}
 const state = (game: string, user: string) => rpc<State>("game_state", { p_game: game, p_user: user });
 const startRound = (game: string, user: string) => rpc<State>("start_round", { p_game: game, p_user: user });
 const pin = (game: string, user: string, round: number, lat: number, lng: number) =>
@@ -95,19 +101,52 @@ async function everyoneGuesses(game: string, players: string[], round: number): 
   return last!;
 }
 
-/** Plays the game from `fromRound` to the end, with the host opening each next round. */
+/** Where a round's photo really was (the test reads it with the secret key). */
+async function answerOf(game: string, round: number): Promise<{ lat: number; lng: number }> {
+  const { data, error } = await admin.from("game_rounds").select("images(lat, lng)").eq("game_id", game).eq("round_no", round).single();
+  if (error) throw new Error(error.message);
+  return data.images as unknown as { lat: number; lng: number };
+}
+
+/** `km` kilometres north of a point. */
+const north = (at: { lat: number; lng: number }, km: number) => ({ lat: at.lat + km / 111.32, lng: at.lng });
+
+/**
+ * Ends a game: everyone but `winner` drops to 1 health, the next round opens,
+ * the winner pins the answer and the others pin `spot(n)`. Returns the
+ * winner's final state.
+ */
+async function finish(game: string, players: string[], host: string, winner: string): Promise<State> {
+  const { error } = await admin.from("game_players").update({ health: 1 }).eq("game_id", game).neq("user_id", winner);
+  if (error) throw new Error(error.message);
+  const opened = await startRound(game, host);
+  const round = opened.round!.number;
+  const at = await answerOf(game, round);
+  for (const [n, player] of players.entries()) if (player !== winner) await lock(game, player, round, spot(n).lat, spot(n).lng);
+  return lock(game, winner, round, at.lat, at.lng);
+}
+
+/**
+ * Plays rounds `fromRound` to 5 with the host opening each next round, then
+ * ends the game with the host winning round 6. Health is set high first, so
+ * nobody is knocked out along the way.
+ */
 async function playOut(game: string, players: string[], host: string, fromRound = 1): Promise<State> {
-  let last: State | null = null;
+  await admin.from("game_players").update({ health: 1_000_000 }).eq("game_id", game);
   for (let round = fromRound; round <= 5; round++) {
     if (round > 1) expect((await startRound(game, host)).round?.number).toBe(round);
-    last = await everyoneGuesses(game, players, round);
+    await everyoneGuesses(game, players, round);
   }
-  return last!;
+  const last = await finish(game, players, host, host);
+  expect(last.status).toBe("completed");
+  return last;
 }
 
 afterAll(async () => {
-  // Deleting an account removes its profile, room seats, games and guesses.
+  // Deleting an account removes its profile, room seats, solo games and guesses. Versus games stay for
+  // the other players, so the ones made here are deleted by hand (with their rounds and guesses).
   for (const id of users) await admin.auth.admin.deleteUser(id);
+  for (let i = 0; i < games.length; i += 50) await admin.from("games").delete().in("id", games.slice(i, i + 50));
   await admin.from("rooms").update({ status: "closed", closed_at: new Date().toISOString() }).is("created_by", null).neq("status", "closed");
 });
 
@@ -206,6 +245,8 @@ describe("a five player game", () => {
   beforeAll(async () => {
     ({ code, players } = await lobby(5));
     game = (await start(code, players[0])).gameId!;
+    // These checks are about rounds, not health: nobody is knocked out along the way.
+    await update("game_players", { health: 1_000_000 }, { game_id: game });
   });
 
   it("opens round one for everyone with the same clock and the same photo", async () => {
@@ -315,7 +356,8 @@ describe("a five player game", () => {
     const last = await lock(game, players[3], 3, spot(3).lat, spot(3).lng);
     expect(last.round).toBeNull();
     const missed = last.results[2].players![4];
-    expect(missed).toEqual({ seat: 5, guess: null, distanceM: null, score: 0 });
+    expect(missed).toMatchObject({ seat: 5, guess: null, distanceM: null, score: 0 });
+    expect(missed.damage).toBe(Math.max(...last.results[2].players!.map((p) => p.score)));
   });
 
   it("lets that player rejoin the same room mid-game and play on", async () => {
@@ -339,16 +381,33 @@ describe("a five player game", () => {
     await goQuiet(code, players[2], 30);
     for (const n of [0, 1, 3]) await lock(game, players[n], 5, spot(n).lat, spot(n).lng);
     const done = await lock(game, players[4], 5, spot(4).lat, spot(4).lng);
-    expect(done.status).toBe("completed");
+    expect(done.round).toBeNull();
+    expect(done.status).toBe("active");
     expect(done.results[4].players![2].guess).toEqual(spot(2));
     expect(done.results[4].players![2].score).toBeGreaterThan(0);
   });
 
-  it("finishes with each player's own five round total", async () => {
+  it("goes past round five, and ends when one player is left", async () => {
+    const back = await join(code, players[2]);
+    expect(back.status).toBe("playing");
+    const final = await finish(game, players, players[0], players[0]);
+    expect(final.status).toBe("completed");
+    expect(final.currentRound).toBe(6);
+    expect(final.versus!.players.map((p) => p.eliminatedRound)).toEqual([null, 6, 6, 6, 6]);
+    expect(final.versus!.players[0].place).toBe(1);
+    // The four knocked out together are ranked by health left: whoever took the least damage is second.
+    const damage = final.results[5].players!.map((p) => p.damage!);
+    for (const [n, p] of final.versus!.players.entries()) {
+      if (n === 0) continue;
+      expect(p.place).toBe(2 + damage.slice(1).filter((d) => d < damage[n]).length);
+    }
+  });
+
+  it("finishes with each player's own total", async () => {
     const final = await Promise.all(players.map((p) => state(game, p)));
     for (const [n, s] of final.entries()) {
       expect(s.status).toBe("completed");
-      expect(s.results).toHaveLength(5);
+      expect(s.results).toHaveLength(6);
       expect(s.totalScore).toBe(s.results.reduce((sum, r) => sum + r.score, 0));
       expect(s.totalScore).toBe(s.versus!.players[n].total);
       expect(s.versus!.players).toEqual(final[0].versus!.players.map((p) => ({ ...p, isYou: p.seat === n + 1 })));
@@ -405,7 +464,7 @@ describe("leaving and the host", () => {
     await lock(game, players[1], 2, spot(1).lat, spot(1).lng);
     const done = await lock(game, players[2], 2, spot(2).lat, spot(2).lng);
     expect(done.round).toBeNull();
-    expect(done.results[1].players![0]).toEqual({ seat: 1, guess: null, distanceM: null, score: 0 });
+    expect(done.results[1].players![0]).toMatchObject({ seat: 1, guess: null, distanceM: null, score: 0 });
 
     // The old host comes back as an ordinary player, with 0 for the round they missed.
     const back = await join(code, players[0]);
@@ -414,7 +473,7 @@ describe("leaving and the host", () => {
     const final = await playOut(game, players, players[1], 3);
     expect(final.status).toBe("completed");
     const mine = await state(game, players[0]);
-    expect(mine.results.map((r) => r.score > 0)).toEqual([true, false, true, true, true]);
+    expect(mine.results.map((r) => r.score > 0)).toEqual([true, false, true, true, true, true]);
     expect(mine.totalScore).toBe(mine.results.reduce((sum, r) => sum + r.score, 0));
   });
 
@@ -439,7 +498,7 @@ describe("leaving and the host", () => {
     const scored = await state(game, players[1]);
     expect(scored.round).toBeNull();
     expect(scored.results[0].players![0].guess).toEqual(spot(0));
-    expect(scored.results[0].players![1]).toEqual({ seat: 2, guess: null, distanceM: null, score: 0 });
+    expect(scored.results[0].players![1]).toMatchObject({ seat: 2, guess: null, distanceM: null, score: 0 });
     expect((await lock(game, players[0], 1, 34.07, -118.44)).results[0].players![0].guess).toEqual(spot(0));
   });
 
@@ -471,64 +530,259 @@ describe("leaving and the host", () => {
   });
 });
 
+describe("the health battle", () => {
+  type Settings = { versus_start_health: number; versus_first_lock_seconds: number; versus_multiplier_base: number; versus_multiplier_step: number; versus_multiplier_from_round: number; guess_grace_ms: number };
+  let settings: Settings;
+  const multiplier = (round: number) =>
+    Number(settings.versus_multiplier_base) + Number(settings.versus_multiplier_step) * Math.max(0, round - settings.versus_multiplier_from_round + 1);
+  const deadline = async (game: string, round: number) =>
+    Date.parse((await admin.from("game_rounds").select("deadline_at").eq("game_id", game).eq("round_no", round).single()).data!.deadline_at);
+  /** Skips the intro: the clock started `secondsAgo` ago and has the rest of its 30 seconds. */
+  const clockRunning = (game: string, round: number, secondsAgo = 1) =>
+    update("game_rounds", { started_at: ago(secondsAgo), deadline_at: new Date(Date.now() + (30 - secondsAgo) * 1000).toISOString(), cut_at: null }, { game_id: game, round_no: round });
+
+  beforeAll(async () => {
+    settings = (await admin.from("settings").select("*").single()).data as Settings;
+  });
+
+  it("starts everyone at full health, on a round with the base multiplier and no round limit", async () => {
+    const { code, players } = await lobby(3);
+    const game = (await start(code, players[0])).gameId!;
+    const s = await state(game, players[1]);
+    expect(s.roundCount).toBeNull();
+    expect(s.versus?.startHealth).toBe(settings.versus_start_health);
+    expect(s.versus?.players.map((p) => [p.health, p.eliminatedRound, p.place])).toEqual(Array(3).fill([settings.versus_start_health, null, null]));
+    expect(Number(s.round?.multiplier)).toBe(multiplier(1));
+    expect(s.round?.shortened).toBe(false);
+    expect(s.round!.deadlineAt - s.round!.startsAt).toBe(30_000);
+  });
+
+  it("takes (best − own score) × multiplier from everyone; the best scorer loses nothing", async () => {
+    const { code, players } = await lobby(3);
+    const game = (await start(code, players[0])).gameId!;
+    const at = await answerOf(game, 1);
+    await lock(game, players[0], 1, north(at, 0.3).lat, north(at, 0.3).lng);
+    await lock(game, players[1], 1, at.lat, at.lng);
+    await pin(game, players[2], 1, north(at, 1).lat, north(at, 1).lng);
+    await goQuiet(code, players[2], 30);
+    const s = await state(game, players[0]);
+    const [a, b, c] = s.results[0].players!;
+    expect(b).toMatchObject({ score: 5000, damage: 0, health: settings.versus_start_health, eliminated: false });
+    expect(a.damage).toBe(Math.round((5000 - a.score) * multiplier(1)));
+    expect(c.damage).toBe(Math.round((5000 - c.score) * multiplier(1)));
+    expect(c.score).toBeGreaterThan(0);
+    expect(s.versus!.players.map((p) => p.health)).toEqual([a, b, c].map((p) => settings.versus_start_health - p.damage!));
+    expect(Number(s.results[0].multiplier)).toBe(multiplier(1));
+  });
+
+  it("cuts everyone's clock to the countdown at the first guess, once, when two players lock in at the same moment", async () => {
+    const { code, players } = await lobby(3);
+    const game = (await start(code, players[0])).gameId!;
+    await clockRunning(game, 1);
+    const before = await deadline(game, 1);
+    const sentAt = Date.now();
+    const [a, b] = await Promise.all([
+      lock(game, players[0], 1, spot(0).lat, spot(0).lng),
+      lock(game, players[1], 1, spot(1).lat, spot(1).lng),
+    ]);
+    const answeredAt = Date.now();
+    expect([a.round?.locked, b.round?.locked]).toEqual([true, true]);
+    // Both answers carry the same, single cut: the first lock's time plus the countdown.
+    expect(a.round?.deadlineAt).toBe(b.round?.deadlineAt);
+    const cut = await deadline(game, 1);
+    expect(cut).toBe(a.round?.deadlineAt);
+    expect(cut).toBeLessThan(before - 15_000);
+    const countdown = settings.versus_first_lock_seconds * 1000;
+    expect(cut).toBeGreaterThanOrEqual(sentAt + countdown - 1500);
+    expect(cut).toBeLessThanOrEqual(answeredAt + countdown + 1500);
+
+    // The third player sees the new clock, and can still pin and guess before it runs out.
+    const third = await state(game, players[2]);
+    expect(third.round).toMatchObject({ number: 1, locked: false, shortened: true, deadlineAt: cut });
+    expect(await photoPath(game, players[2], 1)).not.toBeNull();
+    expect((await pin(game, players[2], 1, spot(2).lat, spot(2).lng)).ok).toBe(true);
+    // After the cut deadline (and its grace), the round is scored and the photo address closes.
+    await update("game_rounds", { deadline_at: ago(3) }, { game_id: game, round_no: 1 });
+    expect(await photoPath(game, players[2], 1)).toBeNull();
+    const scored = await state(game, players[2]);
+    expect(scored.round).toBeNull();
+    expect(scored.results[0].players![2].guess).toEqual(spot(2));
+  });
+
+  it("leaves the clock alone when the first guess comes with less than the countdown left", async () => {
+    const { code, players } = await lobby(2);
+    const game = (await start(code, players[0])).gameId!;
+    const left = settings.versus_first_lock_seconds * 1000 - 4000;
+    await update("game_rounds", { started_at: ago(30 - left / 1000), deadline_at: new Date(Date.now() + left).toISOString() }, { game_id: game, round_no: 1 });
+    const before = await deadline(game, 1);
+    const locked = await lock(game, players[0], 1, spot(0).lat, spot(0).lng);
+    expect(locked.round?.deadlineAt).toBe(before);
+    expect(locked.round?.shortened).toBe(false);
+    expect(await deadline(game, 1)).toBe(before);
+  });
+
+  it("counts the countdown from the clock's start when someone guesses during the intro", async () => {
+    const { code, players } = await lobby(2);
+    const game = (await start(code, players[0])).gameId!;
+    const locked = await lock(game, players[0], 1, spot(0).lat, spot(0).lng);
+    expect(locked.round!.startsAt).toBeGreaterThan(locked.serverNow);
+    expect(locked.round!.deadlineAt - locked.round!.startsAt).toBe(settings.versus_first_lock_seconds * 1000);
+  });
+
+  it("does not wait for a player who disconnects during the countdown, and scores the pin they left", async () => {
+    const { code, players } = await lobby(3);
+    const game = (await start(code, players[0])).gameId!;
+    await update("game_players", { health: 1_000_000 }, { game_id: game });
+    await clockRunning(game, 1);
+    await lock(game, players[0], 1, spot(0).lat, spot(0).lng);
+    await pin(game, players[1], 1, spot(1).lat, spot(1).lng);
+    await goQuiet(code, players[1], 30);
+    const last = await lock(game, players[2], 1, spot(2).lat, spot(2).lng);
+    expect(last.round).toBeNull();
+    const dropped = last.results[0].players![1];
+    expect(dropped.guess).toEqual(spot(1));
+    expect(dropped.score).toBeGreaterThan(0);
+    expect(dropped.damage).toBe(Math.max(...last.results[0].players!.map((p) => p.score)) - dropped.score);
+
+    // Round two: one in, one drops without a pin, and the one who comes back mid-countdown keeps the cut clock.
+    expect((await startRound(game, players[0])).round?.number).toBe(2);
+    await clockRunning(game, 2);
+    const first = await lock(game, players[0], 2, spot(0).lat, spot(0).lng);
+    await goQuiet(code, players[2], 30);
+    expect((await state(game, players[1])).round).toMatchObject({ number: 2, shortened: true, deadlineAt: first.round!.deadlineAt });
+    const done = await lock(game, players[1], 2, spot(1).lat, spot(1).lng);
+    expect(done.round).toBeNull();
+    expect(done.results[1].players![2]).toMatchObject({ guess: null, score: 0 });
+    expect(done.results[1].players![2].damage).toBe(Math.max(...done.results[1].players!.map((p) => p.score)));
+  });
+
+  it("knocks out two players in the same round, ranks them by health left, and lets them watch", async () => {
+    const { code, players } = await lobby(4);
+    const game = (await start(code, players[0])).gameId!;
+    await update("game_players", { health: 500 }, { game_id: game, seat: 2 });
+    await update("game_players", { health: 500 }, { game_id: game, seat: 3 });
+    const at = await answerOf(game, 1);
+    await lock(game, players[0], 1, at.lat, at.lng);
+    await lock(game, players[1], 1, north(at, 0.5).lat, north(at, 0.5).lng);
+    await lock(game, players[2], 1, north(at, 1).lat, north(at, 1).lng);
+    const s = await lock(game, players[3], 1, north(at, 0.02).lat, north(at, 0.02).lng);
+    expect(s.status).toBe("active");
+    expect(s.results[0].players!.map((p) => p.eliminated)).toEqual([false, true, true, false]);
+    expect(s.results[0].players!.map((p) => p.health)).toEqual([settings.versus_start_health, 0, 0, settings.versus_start_health - s.results[0].players![3].damage!]);
+    expect(s.versus!.players.map((p) => p.eliminatedRound)).toEqual([null, 1, 1, null]);
+    // Both are behind the two still standing; the one who missed by less is third.
+    expect(s.versus!.players.map((p) => p.place)).toEqual([null, 3, 4, null]);
+
+    // Round two: the knocked-out players can see the photo but not guess, and the round does not wait for them.
+    expect((await startRound(game, players[0])).round?.number).toBe(2);
+    expect(await photoPath(game, players[1], 2)).not.toBeNull();
+    expect((await pin(game, players[1], 2, spot(1).lat, spot(1).lng)).error).toBe("eliminated");
+    expect((await lock(game, players[2], 2, spot(2).lat, spot(2).lng)).error).toBe("eliminated");
+    await lock(game, players[0], 2, spot(0).lat, spot(0).lng);
+    const two = await lock(game, players[3], 2, spot(3).lat, spot(3).lng);
+    expect(two.round).toBeNull();
+    expect(two.results[1].players!.map((p) => p.seat)).toEqual([1, 4]);
+    // A spectator's own view of the round: watching, with everyone's pins.
+    const watching = await state(game, players[1]);
+    expect(watching.results[1].guess).toBeNull();
+    expect(watching.results[1].players).toHaveLength(2);
+  });
+
+  it("lets the one with the most health left win when the last players all reach 0 together", async () => {
+    // Under the damage rule the round's best scorer loses nothing, so this cannot happen in a real
+    // game. Forcing everyone to 0 health first is the only way to reach the rule.
+    const { code, players } = await lobby(3);
+    const game = (await start(code, players[0])).gameId!;
+    await update("game_players", { health: 0 }, { game_id: game });
+    const at = await answerOf(game, 1);
+    await lock(game, players[0], 1, north(at, 0.2).lat, north(at, 0.2).lng);
+    await lock(game, players[1], 1, at.lat, at.lng);
+    const s = await lock(game, players[2], 1, north(at, 0.6).lat, north(at, 0.6).lng);
+    expect(s.status).toBe("completed");
+    expect(s.versus!.players.map((p) => p.eliminatedRound)).toEqual([1, 1, 1]);
+    expect(s.versus!.players.map((p) => p.place)).toEqual([2, 1, 3]);
+  });
+
+  it("plays a long game past round 20 with rising multipliers and no repeated photo", { timeout: 120_000 }, async () => {
+    const { code, players } = await lobby(2);
+    const game = (await start(code, players[0])).gameId!;
+    const rounds = 23;
+    for (let round = 1; round < rounds; round++) {
+      if (round > 1) expect((await startRound(game, players[0])).round?.number).toBe(round);
+      // Both pin the same spot: level scores, no damage.
+      await lock(game, players[0], round, spot(0).lat, spot(0).lng);
+      const tied = await lock(game, players[1], round, spot(0).lat, spot(0).lng);
+      expect(tied.round).toBeNull();
+    }
+    const opened = await startRound(game, players[0]);
+    expect(Number(opened.round?.multiplier)).toBe(multiplier(rounds));
+    const at = await answerOf(game, rounds);
+    await lock(game, players[0], rounds, at.lat, at.lng);
+    const end = await lock(game, players[1], rounds, north(at, 0.15).lat, north(at, 0.15).lng);
+    const s = await state(game, players[1]);
+    expect(s.results.map((r) => Number(r.multiplier))).toEqual(Array.from({ length: rounds }, (_, i) => multiplier(i + 1)));
+    expect(s.results.slice(0, -1).every((r) => r.players!.every((p) => p.damage === 0))).toBe(true);
+    const loser = end.results[rounds - 1].players![1];
+    expect(loser.damage).toBe(Math.floor((5000 - loser.score) * multiplier(rounds) + 0.5));
+    expect(loser.damage).toBeGreaterThan(settings.versus_start_health);
+    expect(end.status).toBe("completed");
+    expect(end.versus!.players.map((p) => p.place)).toEqual([1, 2]);
+    const images = (await admin.from("game_rounds").select("image_id").eq("game_id", game)).data!.map((r) => r.image_id);
+    expect(images).toHaveLength(rounds);
+    expect(new Set(images).size).toBe(rounds);
+  });
+
+  it("ends the game on health when every photo has been used", { timeout: 300_000 }, async () => {
+    const { count } = await admin.from("images").select("id", { count: "exact", head: true }).eq("hidden", false);
+    const { code, players } = await lobby(2);
+    const game = (await start(code, players[0])).gameId!;
+    await update("game_players", { health: 4000 }, { game_id: game, seat: 2 });
+    let last: State | null = null;
+    for (let round = 1; round <= count!; round++) {
+      if (round > 1) expect((await startRound(game, players[0])).round?.number).toBe(round);
+      await lock(game, players[0], round, spot(0).lat, spot(0).lng);
+      last = await lock(game, players[1], round, spot(0).lat, spot(0).lng);
+    }
+    expect(last!.status).toBe("active");
+    const over = await startRound(game, players[0]);
+    expect(over.status).toBe("completed");
+    expect(over.currentRound).toBe(count);
+    expect(over.versus!.players.map((p) => [p.health, p.place])).toEqual([[settings.versus_start_health, 1], [4000, 2]]);
+  });
+});
+
 describe("versus games and the leaderboard", () => {
   const name = () => `lt_${randomBytes(5).toString("hex")}`;
   const board = (user: string | null) => rpc<Leaderboard>("leaderboard", { p_user: user, p_limit: 100, p_offset: 0 });
 
-  it("counts each player's versus total like a solo game, and only if it is their best", async () => {
+  it("never counts a versus game: the board is solo only", async () => {
     const { code, players } = await lobby(2);
     for (const p of players) await rpc("set_username", { p_user: p, p_username: name() });
     const game = (await start(code, players[0])).gameId!;
-
-    // Mid-game: nothing on the board yet.
-    await everyoneGuesses(game, players, 1);
-    expect((await board(players[0])).you).toBeNull();
-
-    const final = await playOut(game, players, players[0], 2);
+    const final = await playOut(game, players, players[0]);
     expect(final.status).toBe("completed");
-    for (const [n, p] of players.entries()) {
-      const mine = (await board(p)).you;
-      expect(mine).toMatchObject({ score: final.versus!.players[n].total, mode: "versus", gameId: game });
-    }
+    expect(final.totalScore).toBeGreaterThan(0);
+    for (const p of players) expect((await board(p)).you).toBeNull();
 
-    // A better solo game replaces it; a worse versus rematch does not.
-    const best = final.versus!.players[0].total + 1;
+    // A solo game does count, even one scoring less than the versus total.
     const solo = await admin.from("games").insert({ status: "completed", current_round: 5, created_by: players[0], completed_at: new Date().toISOString() }).select("id").single();
-    await admin.from("game_players").insert({ game_id: solo.data!.id, user_id: players[0], total_score: best });
-    expect((await board(players[0])).you).toMatchObject({ score: best, mode: "solo" });
-
-    await join(code, players[0]);
-    await join(code, players[1]);
-    const rematch = (await start(code, players[0])).gameId!;
-    for (let round = 1; round <= 5; round++) {
-      if (round > 1) await startRound(rematch, players[0]);
-      // Player one guesses from another continent this time.
-      await lock(rematch, players[0], round, -33.86, 151.21);
-      await lock(rematch, players[1], round, spot(1).lat, spot(1).lng);
-    }
-    expect((await state(rematch, players[0])).totalScore).toBe(0);
-    expect((await board(players[0])).you).toMatchObject({ score: best, mode: "solo" });
-  });
-
-  it("does not count an abandoned versus game", async () => {
-    const { code, players } = await lobby(2);
-    for (const p of players) await rpc("set_username", { p_user: p, p_username: name() });
-    const game = (await start(code, players[0])).gameId!;
-    await everyoneGuesses(game, players, 1);
-    await leave(code, players[0]);
-    await leave(code, players[1]);
-    expect((await board(players[0])).you).toBeNull();
+    await admin.from("game_players").insert({ game_id: solo.data!.id, user_id: players[0], total_score: 100 });
+    expect((await board(players[0])).you).toMatchObject({ score: 100, mode: "solo" });
     expect((await board(players[1])).you).toBeNull();
+
+    // The profile's best game follows the board; the versus game still counts as played (and won).
+    const profile = await rpc<{ stats: { bestScore: number | null; gamesPlayed: number; versusPlayed: number; versusWon: number } }>("player_profile", {
+      p_username: (await admin.from("profiles").select("username").eq("id", players[0]).single()).data!.username,
+      p_viewer: null,
+      p_recent: 10,
+    });
+    expect(profile.stats).toMatchObject({ bestScore: 100, gamesPlayed: 2, versusPlayed: 1, versusWon: 1 });
   });
 
-  it("keeps development test accounts off the board", async () => {
-    const { code, players } = await lobby(2);
-    for (const p of players) await rpc("set_username", { p_user: p, p_username: name() });
-    await update("profiles", { is_test: true }, { id: players[0] });
-    const game = (await start(code, players[0])).gameId!;
-    await playOut(game, players, players[0]);
-    expect((await board(players[0])).you).toBeNull();
-    expect((await board(players[1])).you).not.toBeNull();
+  it("has no versus rows left on the board at all", async () => {
+    const { data, error } = await admin.from("leaderboard_entries").select("rank").eq("mode", "versus");
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
   });
 });
 
@@ -554,6 +808,8 @@ describe("the public key cannot reach versus data", () => {
       ["_room_upkeep", { p_room: someone }],
       ["_pick_images", { p_users: [someone], p_count: 5, p_exclude_game: someone }],
       ["_everyone_in", { p_game: someone, p_round: 1 }],
+      ["_versus_multiplier", { p_round: 5 }],
+      ["_versus_finish", { p_game: someone }],
     ];
     for (const [fn, args] of calls) {
       const { data, error } = await anon.rpc(fn, args);

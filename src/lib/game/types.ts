@@ -23,7 +23,9 @@ export type RoundResult = {
   credit: PhotoCredit;
   /** True once this player has reported the photo. */
   reported: boolean;
-  /** Versus only: every player's pin for this round, by seat. */
+  /** Versus: the damage multiplier for this round. Null in solo. */
+  multiplier?: number | null;
+  /** Versus only: every player who played this round (not those already out), by seat. */
   players?: PlayerResult[] | null;
 };
 
@@ -33,6 +35,12 @@ export type PlayerResult = {
   guess: LatLng | null;
   distanceM: number | null;
   score: number;
+  /** Health lost this round: (the round's best score − this score) × the multiplier. Null in a game from before health. */
+  damage?: number | null;
+  /** Health left after this round, never below 0. */
+  health?: number | null;
+  /** Knocked out by this round. */
+  eliminated?: boolean;
 };
 
 /** The round being played. Says nothing about the photo. */
@@ -47,6 +55,10 @@ export type OpenRound = {
   pin: LatLng | null;
   /** True once this player has pressed Guess. In a versus game the round may still be open for others. */
   locked: boolean;
+  /** Versus: the damage multiplier for this round. */
+  multiplier?: number | null;
+  /** Versus: someone has guessed, and the server cut everyone's remaining time. */
+  shortened?: boolean;
 };
 
 /** A player in a versus game. Says who has guessed, never where. */
@@ -56,6 +68,12 @@ export type VersusPlayer = {
   username: string;
   /** Sum of their scored rounds so far. */
   total: number;
+  /** Health left (0 once out). Null in a game from before health. */
+  health: number | null;
+  /** The round that knocked them out, or null while they are still in. */
+  eliminatedRound: number | null;
+  /** Where they finished (1 is the winner). Set once they are out, or when the game ends. */
+  place: number | null;
   isYou: boolean;
   isHost: boolean;
   /** Left, or not heard from lately. Rounds do not wait for them. */
@@ -71,8 +89,12 @@ export type VersusInfo = {
   channel: string | null;
   seat: number;
   isHost: boolean;
+  /** The health everyone started with. Null in a game from before health. */
+  startHealth: number | null;
   /** Between rounds: server time (ms) when the next round opens by itself. */
   nextRoundAt: number | null;
+  /** The multiplier the next round will have, while the game is on. */
+  nextMultiplier: number | null;
   /**
    * After the game: `open` means the room is a lobby again and `ready` players
    * are waiting in it; `started` means the next game began without this player.
@@ -85,7 +107,8 @@ export type GameState = {
   id: string;
   mode: "solo" | "versus";
   status: "active" | "completed" | "abandoned";
-  roundCount: number;
+  /** Rounds in the game. Null in versus: it runs until one player is left. */
+  roundCount: number | null;
   roundSeconds: number;
   /** 0 before the first round opens. */
   currentRound: number;
@@ -128,6 +151,7 @@ export type GameError =
   | "not_in_room"
   | "not_host"
   | "need_players"
+  | "eliminated"
   | "server_error";
 
 /** What the game screen should be showing, worked out from the state alone. */
@@ -140,7 +164,7 @@ export function phaseOf(state: GameState): GamePhase {
   return state.currentRound === 0 ? "ready" : "reveal";
 }
 
-/** Highest total a game can reach. */
+/** Highest total a game can reach: solo only (a versus game has no fixed length). */
 export function maxTotal(state: Pick<GameState, "roundCount">): number {
-  return state.roundCount * 5000;
+  return (state.roundCount ?? 0) * 5000;
 }
