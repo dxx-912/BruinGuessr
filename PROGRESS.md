@@ -18,7 +18,7 @@ Read SPEC.md first, then this file.
 - Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
 - `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All nine pass (since 2026-11-16).
-- `npm test`: 101 tests. `npm run test:live`: 60 tests against the real database (counts as of Phase 4).
+- `npm test`: 111 tests. `npm run test:live`: 80 tests against the real database (counts as of Phase 6a).
 
 ### Decided by Daniel (2026-11-15)
 
@@ -96,7 +96,9 @@ Read SPEC.md first, then this file.
 
 **Phase 4 (versus): done and approved by Daniel 2026-11-16.**
 
-**Phase 5 (polish and deploy): built 2026-11-16, waiting for Daniel's approval.** Details in "Phase 5" below.
+**Phase 5 (polish and deploy): built 2026-11-16. Daniel moved on to Iteration 2 on 2026-11-17.** Details in "Phase 5" below.
+
+**Iteration 2 (SPEC.md "Iteration 2"), Phase 6a (site structure and accounts): built 2026-11-17, waiting for Daniel's approval.** Details in "Phase 6a" below. Phases 6b (versus health battle) and 6c (visual pass) are not started.
 
 The site is live at https://ucla-geoguessr.vercel.app with Google sign in working (Daniel, 2026-11-16). **The live site and `npm run dev` use the same Supabase database.** Migrations and test data land in production the moment they are applied or created.
 
@@ -201,6 +203,65 @@ What was added:
 
 - Strong: the core from Bruin Walk to Royce and Powell, the east side down Portola Plaza and Charles E. Young Dr East, the Court of Sciences.
 - Thin or empty: **the whole Hill (columns A and B)**, Sunset Canyon Rec, Drake Stadium, the north edge along Sunset (row 1), the Anderson and northwest corner (D3), and the south edge at Le Conte (row 7).
+
+## Phase 6a (site structure and accounts)
+
+What was added:
+
+- **Navigation.** Every page except a game and a versus lobby sits in one layout (`src/app/(site)/layout.tsx`, a route group, so no address changed): a side bar from 1024 px wide (Play, Leaderboard, Profile, Settings), a bottom tab bar below that, the account corner at top right on every page, and a one-line footer with Credits. 1024 px is wider than any phone held sideways, so a phone never gets the side bar.
+- **Account corner.** Signed in: avatar and username, opening Profile, Settings, Log out. Signed out: "Log in" and "Sign up".
+- **One sign-in page**, `/login`. "Sign up" goes to `/login?mode=signup`; the heading and text follow the mode, the button is "Continue with Google" either way. `?reason=versus|profile|settings` adds one line saying why. Sign-in failures land back here. The home page no longer has a Google button.
+- **Play page** (`/`): "Know UCLA?", the subheading, Solo and Versus tiles with the spec's wording, Look / Pin / Score, and the top 5 from the leaderboard. Signed out, a line under the tiles says solo needs no account.
+- **Guest play.** Signed out, Solo starts a guest game. Details and rate limits below.
+- **Profile** (`/profile/<username>`, any capitals; `/profile` goes to your own): username, join date, leaderboard rank, best game, games played, average per round, bullseyes, versus played and won, and the last 10 games, each opening to its rounds (distance and points). Usernames on the leaderboard and Top players link to profiles.
+- **Settings** (`/settings`): change username, the Google email (only here, only to the owner), log out, delete account.
+- **Room invitation** (a room link opened signed out) now offers "Sign up to join" and "Log in" instead of a Google button.
+- Database: migrations `20261117000100_guests_profiles.sql` and `20261117000200_profile_check_existing.sql` (a fix to a trigger in the first, found by the live tests), both applied with Daniel's approval.
+
+### Guest play and its rate limits
+
+- A guest is a random 32-byte token in an http-only, SameSite=Lax cookie (`bg_guest`, 7 days). The database stores only its SHA-256, next to a guest profile with no account behind it (`profiles.is_guest`, table `guests`). Nothing about it is readable by page scripts.
+- Guest games are ordinary solo games: the same database functions, server clock, deadlines, per-round photo address and scoring. A guest can see only its own game, exactly as a player can. Checked by the live tests (database and HTTP).
+- Never on the leaderboard: guests can never have a username (a check constraint), and the leaderboard view also leaves `is_guest` out.
+- Never attached to an account: signing in (Google or the dev login) deletes the guest cookie, and nothing in the database links a guest to an account. Guest profiles and their games are deleted after 7 days without a visit.
+- Guests cannot report photos (the server answers 403 `account_required`; the button is hidden). A guest costs nothing to make, so guest reports would let one person hide any photo.
+- Versus, profile and settings need an account: the room API only accepts a real Supabase session, which a guest does not have.
+- **Rate limits**, checked in the database under a lock so they cannot be raced, all columns in `settings`:
+  - new guests: 30 an hour per network (`guest_new_per_ip_hour`),
+  - guest games: 20 an hour per guest (`guest_games_per_hour`), 60 an hour per network (`guest_games_per_ip_hour`), 1,500 an hour for all guests together (`guest_games_global_hour`).
+  - "Network" is the visitor's IP address from Vercel's `x-real-ip` / `x-forwarded-for` (Vercel sets these itself; a client cannot). Only an HMAC of it is stored, keyed with the service key, so the stored value cannot be turned back into an address. Rate-limit rows are kept one day.
+  - When a limit is hit, the Solo tile says "That's a lot of guest games from here. Sign up to keep playing, or try again in a little while." Signed-in players are never limited.
+  - The per-network limit is what stops someone clearing cookies to get a fresh guest. It is set high (60 games an hour) because many students can share one campus Wi-Fi address.
+
+### Decisions made in Phase 6a (say so if you want any changed)
+
+- Profile stats count completed games only, as the leaderboard does. "Games played" counts solo and versus; "Versus played / won" is the versus part of it. A versus win is finishing with no one above you (a tie for first counts as a win for both). "Best game" follows the leaderboard (solo or versus) until Phase 6b makes the board solo only.
+- Public profiles show an initial in a circle, not the Google photo: profiles are public and nobody chose to publish that photo. The Google photo still shows in your own account corner.
+- Rounds on a profile show distance and points only, never the photo or where it was.
+- Username changes: the first change after picking a name can be made at any time; after that, once every 30 days (`username_change_days`). Changing only the capitals counts as a change. The old name is free for others at once.
+- Deleting an account removes its profile, solo games, reports and leaderboard entry. Versus games stay for the other players without that player in them (games no longer cascade-delete with their creator). The confirmation accepts the username in any capitals. A sign-in token from another device can outlive the account by up to an hour; every page treats it as signed out, and the database refuses to bring the profile back.
+- A versus lobby and a game keep their own full-screen layouts (no side bar or tab bar): the lobby's Start button is pinned to the bottom on phones, where the tab bar would sit.
+- The profile tab title is "Profile" rather than the username: reading the address in the page title made Next.js report "did not produce a static shell" in development.
+- The home page's campus drawing (`CampusHero`) is no longer used; Phase 6c brings the new illustration.
+
+### Checks run at the end of Phase 6a
+
+- `npm test` (111 passed; new: guest network hashing, profile formatting), `npm run test:live` (80 passed, with `npm run dev` running; new: 16 database checks in `tests/live/accounts.live.ts` and 5 HTTP checks), type-check, lint, production build, `npm run photos:report` (all nine anti-cheat checks pass). No secret key and none of the new database function names in the browser files.
+- Live tests cover: a guest's full game never reaching the leaderboard; guest anti-cheat (no photo before the round, none after, none for another guest, no answer in an open round); guest reports refused; each rate limit (per guest, per network, new guests per network; the all-guests limit is not tested because hitting it would block real guests for an hour); guest clean-up after 7 days; the guest cookie being http-only and forgotten on sign in; a made-up cookie being refused; profile stats against known games, lookup in any capitals, no account ID, email, game ID or location in the profile; username change rules and the 30 days; deleting an account (profile, solo games and board entry gone, a versus game kept for the other player) over HTTP with the typed confirmation, and the old session cookie being treated as signed out.
+- Browser pass, headless Chrome (290 checks, no console errors) at 1280 × 800, 820 × 1100 (tablet), 844 × 390 (phone on its side), 375 × 548, 360 × 612, 430 × 746 and 320 × 454: side bar only at 1024+, tab bar otherwise, never both; no sideways scrolling; footer clear of the tab bar; tab targets 56 px tall; the account corner at top right, signed in and out; the account menu fitting on screen at 320; the current page marked in the nav; Log in / Sign up wording; signed-out Versus going to the login page with its reason; a full guest game on a phone and on desktop (no report button, the sign-up invitation on the summary); a signed-in game, profile with a game opened to its rounds, settings with the email; then on a phone a username change and an account deletion through the settings page, landing signed out on "Your account and everything in it has been deleted."
+- Account changes were tested only on development test accounts (`dev-player-7/8/9`, created and deleted by the tests) and throwaway accounts. One slip: the first browser run signed in as the existing test account `dev-player-6` (P5_Tester6, left from Phase 5) and renamed it; its name and change date were put back. Guests made during testing were deleted afterwards. The Phase 5 test accounts `dev-player-1` to `6` are still there.
+- **Not tested by me:** real Google sign up and log in through the new page (it posts to the same `/auth/sign-in` as before), and a real phone.
+- **Not pushed to the live site in this check.** The database migrations are applied (shared database), so the live site already has the new tables; the old live code does not use them.
+
+### How to test Phase 6a
+
+1. `npm run dev`, open http://localhost:3000 signed out (a private window). Check the side bar on a wide window and the tab bar when you narrow it below 1024 px. Top right: Log in and Sign up; each opens `/login` with its own wording.
+2. Press Solo signed out: a full game as a guest. The reveal has no Report button; the summary invites you to sign up. Check `/leaderboard`: the guest score is not there.
+3. Press Versus signed out: the login page says versus needs an account.
+4. Sign in (Continue with Google). The top right shows your avatar and name; its menu has Profile, Settings, Log out. Your guest game is not in your profile.
+5. Profile: stats, recent games (click one to see its rounds). Open someone else's from the leaderboard: no email anywhere.
+6. Settings: your email; change your username (try a rude or taken one first); the form then shows the date of your next allowed change.
+7. Delete account: only with a dev test account. Open http://localhost:3000/api/dev/login?as=9 in a private window, pick a name, go to Settings → Delete account, type the name. You land on the home page, signed out.
 
 ## Key decisions
 

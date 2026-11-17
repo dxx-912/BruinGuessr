@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import LoadingMark from "@/components/LoadingMark";
+import { currentGuest } from "@/lib/server/guest";
 import { currentPlayer } from "@/lib/server/profile";
 import GameClient from "./GameClient";
 
@@ -17,9 +18,12 @@ export default function GamePage({ params }: PageProps<"/game/[id]">) {
 
 async function Game({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // Players must be signed in. The game API checks this again on every request.
+  // A signed-in player, or a guest playing solo. The game API checks again on every request.
   const player = await currentPlayer();
-  if (!player) redirect(`/?signin=required&next=${encodeURIComponent(`/game/${id}`)}`);
+  if (!player) {
+    if (await currentGuest()) return <GameClient key={id} gameId={id} guest />;
+    redirect(`/login?next=${encodeURIComponent(`/game/${id}`)}`);
+  }
   if (!player.username) redirect(`/welcome?next=${encodeURIComponent(`/game/${id}`)}`);
   return <GameClient key={id} gameId={id} />;
 }

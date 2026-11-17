@@ -1,8 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import SiteFooter from "@/components/SiteFooter";
-import SiteHeader from "@/components/SiteHeader";
 import { currentPlayer } from "@/lib/server/profile";
 import { activeRoom } from "@/lib/server/rooms";
 import { pageMetadata } from "@/lib/site";
@@ -17,13 +14,7 @@ export const metadata = pageMetadata({
 
 export default function VersusPage() {
   return (
-    <main className="flex flex-1 flex-col bg-night text-paper">
-      <SiteHeader>
-        <Link href="/leaderboard" className="btn btn-quiet !rounded-full !px-4 !py-1.5 !text-lg">
-          Leaderboard
-        </Link>
-      </SiteHeader>
-      <section className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:py-14">
+    <section className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
         <p className="font-semibold text-sky">Two to five players</p>
         <h1 className="display mt-1 text-[clamp(3.6rem,11vw,6.5rem)]">
           Play <span className="text-ucla-gold">versus</span>
@@ -32,16 +23,14 @@ export default function VersusPage() {
         <Suspense fallback={<div className="mt-8 h-64 animate-pulse rounded-[20px] bg-navy" />}>
           <Gate />
         </Suspense>
-      </section>
-      <SiteFooter />
-    </main>
+    </section>
   );
 }
 
 async function Gate() {
   // Players must be signed in, with a name the others will see. The room API checks both again.
   const player = await currentPlayer();
-  if (!player) redirect(`/?signin=required&next=${encodeURIComponent("/versus")}`);
+  if (!player) redirect(`/login?reason=versus&next=${encodeURIComponent("/versus")}`);
   if (!player.username) redirect(`/welcome?next=${encodeURIComponent("/versus")}`);
   return <VersusHome rejoinCode={await activeRoom(player.id)} />;
 }

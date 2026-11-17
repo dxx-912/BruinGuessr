@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import SiteHeader from "@/components/SiteHeader";
 import { safeNextPath } from "@/lib/server/auth";
 import { currentPlayer } from "@/lib/server/profile";
 import { suggestUsername } from "@/lib/username";
@@ -11,21 +10,18 @@ export const metadata: Metadata = { title: "Pick a username", robots: { index: f
 
 export default function WelcomePage({ searchParams }: PageProps<"/welcome">) {
   return (
-    <main className="flex flex-1 flex-col bg-night text-paper">
-      <SiteHeader />
-      <section className="mx-auto grid w-full max-w-xl flex-1 content-center px-5 py-12">
+    <section className="mx-auto grid w-full max-w-xl flex-1 content-center px-4 py-10 sm:px-6">
         <Suspense fallback={<div className="h-72 animate-pulse rounded-[20px] bg-navy" />}>
           <Welcome searchParams={searchParams} />
         </Suspense>
-      </section>
-    </main>
+    </section>
   );
 }
 
 async function Welcome({ searchParams }: { searchParams: PageProps<"/welcome">["searchParams"] }) {
   const [player, query] = await Promise.all([currentPlayer(), searchParams]);
   const next = safeNextPath(typeof query.next === "string" ? query.next : "/");
-  if (!player) redirect(`/?signin=required&next=${encodeURIComponent("/welcome")}`);
+  if (!player) redirect(`/login?mode=signup&next=${encodeURIComponent("/welcome")}`);
   if (player.username) redirect(next);
 
   return (

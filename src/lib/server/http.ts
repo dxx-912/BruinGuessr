@@ -2,6 +2,7 @@ import "server-only";
 import type { GameError } from "@/lib/game/types";
 import { normalizeRoomCode } from "@/lib/versus/types";
 import { currentUser, type CurrentUser } from "./auth";
+import { currentGuest } from "./guest";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -21,6 +22,8 @@ const STATUS: Record<GameError, number> = {
   locked: 409,
   daily_cap: 429,
   no_username: 403,
+  account_required: 403,
+  rate_limited: 429,
   room_locked: 409,
   room_full: 409,
   not_in_room: 403,
@@ -48,6 +51,20 @@ export function reply(result: unknown): Response {
 /** The signed-in account for an API request, or a 401 response to return as is. */
 export async function requireUser(): Promise<CurrentUser | Response> {
   return (await currentUser()) ?? fail("unauthorized");
+}
+
+/** Whoever is playing: a signed-in account, or a guest (solo games only). */
+export type Player = { id: string; guest: boolean };
+
+/**
+ * The player for a game request: the signed-in account if there is one,
+ * otherwise this browser's guest. A 401 response when there is neither.
+ */
+export async function requirePlayer(): Promise<Player | Response> {
+  const user = await currentUser();
+  if (user) return { id: user.id, guest: false };
+  const guest = await currentGuest();
+  return guest ? { id: guest, guest: true } : fail("unauthorized");
 }
 
 /**

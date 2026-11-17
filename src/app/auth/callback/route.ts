@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { safeNextPath, siteOrigin } from "@/lib/server/auth";
+import { forgetGuest } from "@/lib/server/guest";
 import { usernameOf } from "@/lib/server/profile";
 import { sessionClient } from "@/lib/server/supabase";
 
@@ -14,6 +15,8 @@ export async function GET(request: Request) {
     const supabase = await sessionClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Guest games are never moved onto an account. The guest is simply forgotten here.
+      await forgetGuest();
       // First sign in: pick a username before anything else.
       const username = data.user ? await usernameOf(data.user.id).catch(() => null) : null;
       if (!username) return NextResponse.redirect(`${origin}/welcome?next=${encodeURIComponent(next)}`);
@@ -21,5 +24,5 @@ export async function GET(request: Request) {
     }
     console.error(`[auth] sign in could not be completed: ${error.message}`);
   }
-  return NextResponse.redirect(`${origin}/?signin=failed`);
+  return NextResponse.redirect(`${origin}/login?error=failed&next=${encodeURIComponent(next)}`);
 }

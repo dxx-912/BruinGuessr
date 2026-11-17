@@ -107,13 +107,73 @@ Hard limits:
 - Do not use official UCLA logos or the Bruin bear.
 - The game's name is BruinGuessr.
 
-## Out of scope for v1
+## Iteration 2
+
+Phases 0 to 5 are done and live. Iteration 2 comes from the first round of feedback. Where anything in this section conflicts with an earlier section, this section wins. Build it as three phases, 6a, 6b and 6c, with the same stop and approve rhythm as before.
+
+### Phase 6a: Site structure and accounts
+
+Navigation
+- A persistent side navigation bar on desktop with: Play (the default home page), Leaderboard, Profile, Settings. Credits stays in the footer.
+- On phones the side bar becomes a bottom tab bar with the same items. Never a side bar on a phone.
+- Top right of every page: when signed in, the player's avatar and username with a small menu (Profile, Settings, Log out). When signed out, "Log in" and "Sign up" buttons, like any other website.
+
+Sign in (FIXED)
+- Google is still the only sign in method. Email sign up stays out of scope.
+- No "Sign in with Google to play" button on the homepage. "Log in" and "Sign up" lead to one auth page that offers "Continue with Google". The page wording follows which button was pressed.
+
+Guest play (FIXED)
+- A signed out visitor can play solo games as a guest so they can try the game before signing up.
+- Guest games never count toward the leaderboard and are never attached to an account later.
+- After a guest game, the summary invites them to sign up to save scores and get on the leaderboard.
+- Versus requires an account.
+- All anti cheat rules apply to guests exactly as to signed in players. Rate limit guest game creation so it can't be abused.
+
+Play page (home)
+- Headline: "Know UCLA?"
+- Subheading: "Real Bruins know campus inside out. Five rounds to prove you actually go to class."
+- Two large buttons, the main focus of the page:
+  - Solo, with "See how high you can score on the leaderboard."
+  - Versus, with "Join or host a lobby to play with friends!"
+- Three feature bubbles below them covering Look, Pin and Score (or similar short selling points).
+- A "Top players" strip showing the top few players from the leaderboard.
+- A much smaller footer than now.
+
+Profile page
+- Username, join date, and stats: best game score, games played, average score per round, bullseyes, versus games played and won.
+- Recent games, each expandable to show its rounds with distance and points.
+- Profiles are visible to other players by username. Never show a player's email to anyone but themselves.
+
+Settings page
+- Change username: same rules as picking one (unique, profanity filtered, reserved names), at most once every 30 days. Show when the next change is allowed.
+- Account: the signed in Google email, shown only to the account owner.
+- Delete account: confirm by typing the username. Removes the account and its leaderboard entry.
+
+### Phase 6b: Versus becomes a health battle (FIXED)
+
+- Every player starts with 6,000 health.
+- Each round is scored with the normal per round formula. Each player then loses health equal to (the round's best score minus their own score) × the round multiplier. The round's best scorer loses nothing.
+- The multiplier is 1.0 for rounds 1 to 4, then rises by 0.5 each round from round 5, so games always end.
+- A player at 0 health is eliminated and can keep watching the rest of the game. Play continues until one player is left. If the last remaining players all reach 0 in the same round, the one with the most health left after that round's damage wins.
+- Timer: 30 seconds per round, but as soon as the first player locks in a guess, everyone else's remaining time drops to 10 seconds (if they had more than 10 left).
+- Rounds are no longer capped at 5. Photos must still not repeat within a game.
+- The reveal shows each player's distance, round score, damage taken and remaining health. The end screen shows the winner and the elimination order.
+- Versus games no longer count toward the leaderboard. The leaderboard ranks solo games only, and existing versus entries drop off it.
+- Starting health, the multiplier schedule and the 10 second countdown are values in the settings table so I can tune them after playtesting.
+
+### Phase 6c: Visual pass
+
+- Much more colour. UCLA Blue and Gold stay the main colours but stop being the only ones. Suggested supporting colours: the terracotta red brick of Royce Hall and Powell Library, and campus greens. Add clear colours for health, damage and elimination.
+- A rough, stylized 2D illustration of campus on the Play page, in the spirit of WatGuessr's homepage art: for example Dickson Plaza with Royce Hall and the fountain seen from a distance. Flat and clean, drawn as SVG. Do not copy WatGuessr's artwork.
+- Restyle the Leaderboard, Profile and Settings pages using the WatGuessr screenshots in `/reference` as the guide for layout and feel.
+- Update DESIGN.md with the new palette and illustration style.
+
+## Out of scope
 
 Do not build these, but don't make them hard to add later:
 - Daily challenge (same 5 images for everyone each day)
-- Host settings in versus (round count, timer length)
-- Guest play without an account
+- Host settings in versus (round count, timer length, starting health)
 - Email sign up (to be added later with custom SMTP)
-- Profiles, stats history, friends
+- Friends and following
 - Panoramas
 - Difficulty levels or zone filters (for example "Hill only")

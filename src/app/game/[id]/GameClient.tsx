@@ -65,7 +65,8 @@ function useMeasuredHeight(): [(el: HTMLElement | null) => void, number | null] 
 /** How many times a round's photo is asked for before the screen says it could not load. */
 const PHOTO_ATTEMPTS = 3;
 
-export default function GameClient({ gameId }: { gameId: string }) {
+/** `guest`: a signed-out visitor's solo game. It plays the same, but cannot report photos and never counts. */
+export default function GameClient({ gameId, guest = false }: { gameId: string; guest?: boolean }) {
   const router = useRouter();
   const desktop = useMedia("(min-width: 768px)");
   const wide = useMedia("(min-width: 1024px)");
@@ -110,8 +111,9 @@ export default function GameClient({ gameId }: { gameId: string }) {
   const handleError = useCallback(
     (err: unknown) => {
       const code = err instanceof ApiError ? err.code : "server_error";
-      if (code === "unauthorized") router.replace(`/?signin=required&next=${encodeURIComponent(`/game/${gameId}`)}`);
+      if (code === "unauthorized") router.replace(`/login?next=${encodeURIComponent(`/game/${gameId}`)}`);
       else if (code === "not_found") setFatal("not_found");
+      else if (code === "rate_limited") setNotice("That's a lot of guest games. Sign up to keep playing, or try again in a little while.");
       else setNotice(code === "network" ? "Connection problem. Check your internet." : "Something went wrong. Try again.");
     },
     [gameId, router],
@@ -712,6 +714,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
           onNext={next}
           busy={busy}
           panelRef={panelRef}
+          guest={guest}
         />
       )}
 
@@ -725,6 +728,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
           onPlayAgain={isVersus ? rematch : playAgain}
           onHome={isVersus ? leave : undefined}
           busy={busy}
+          guest={guest}
         />
       )}
 

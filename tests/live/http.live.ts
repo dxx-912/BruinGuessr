@@ -8,6 +8,7 @@
  * development-only test login. If the server is not running they are skipped,
  * and the run says so.
  */
+import { createHmac, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import exifr from "exifr";
 import sharp from "sharp";
@@ -35,13 +36,21 @@ async function signIn(n: number, { pickUsername = true } = {}): Promise<string> 
 
 const DEV_TEST_ACCOUNTS = /^dev-player-[789]@bruinguessr\.test$/;
 
-const call = (cookie: string | null, method: string, path: string, body?: unknown, origin = BASE) =>
+const call = (cookie: string | null, method: string, path: string, body?: unknown, origin = BASE, extra: Record<string, string> = {}) =>
   fetch(`${BASE}${path}`, {
     method,
     redirect: "manual",
-    headers: { ...(cookie ? { Cookie: cookie } : {}), ...(method === "GET" ? {} : { Origin: origin, "Content-Type": "application/json" }) },
+    headers: { ...(cookie ? { Cookie: cookie } : {}), ...(method === "GET" ? {} : { Origin: origin, "Content-Type": "application/json" }), ...extra },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+
+/** A made-up network address for guest tests, so the per-network limits start from zero; and its stored hash, for clean-up. */
+const guestNetworks: string[] = [];
+function testNetwork(): string {
+  const ip = `live-test-${randomUUID()}`;
+  guestNetworks.push(createHmac("sha256", process.env.SUPABASE_SERVICE_ROLE_KEY!).update(`guest-network:${ip}`).digest("hex"));
+  return ip;
+}
 
 describe.skipIf(!serverUp)("the game API over HTTP", () => {
   let alice: string;
@@ -51,6 +60,16 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
   beforeAll(async () => {
     alice = await signIn(8);
     bob = await signIn(9);
+  });
+
+  afterAll(async () => {
+    // Guests made here, with their games.
+    if (guestNetworks.length) {
+      const made = await admin.from("guests").select("id").in("ip_hash", guestNetworks);
+      const ids = (made.data ?? []).map((g) => g.id);
+      if (ids.length) await admin.from("profiles").delete().in("id", ids);
+      await admin.from("guest_game_starts").delete().in("ip_hash", guestNetworks);
+    }
   });
 
   afterAll(async () => {
@@ -68,17 +87,74 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
     for (const id of ids) await admin.auth.admin.deleteUser(id);
   });
 
-  it("refuses anyone who is not signed in", async () => {
-    expect((await call(null, "POST", "/api/games")).status).toBe(401);
+  it("refuses anyone who is not signed in (or a guest) everywhere but starting a solo game", async () => {
     const id = "00000000-0000-4000-8000-000000000000";
     expect((await call(null, "GET", `/api/games/${id}`)).status).toBe(401);
     expect((await call(null, "POST", `/api/games/${id}/round`)).status).toBe(401);
     expect((await call(null, "PUT", `/api/games/${id}/pin`, { round: 1, lat: 34, lng: -118 })).status).toBe(401);
     expect((await call(null, "POST", `/api/games/${id}/guess`, { round: 1 })).status).toBe(401);
     expect((await call(null, "GET", `/api/games/${id}/rounds/1/photo`)).status).toBe(404);
-    // The game page streams, so its redirect to the sign-in prompt arrives in the page body.
+    // The game page streams, so its redirect to the sign-in page arrives in the page body.
     const page = await (await call(null, "GET", `/game/${id}`)).text();
-    expect(page).toContain("signin=required");
+    expect(page).toContain("/login?next=");
+    for (const path of ["/settings", "/profile"]) expect(await (await call(null, "GET", path)).text()).toContain("/login?reason=");
+  });
+
+  it("lets a signed-out visitor play solo as a guest, by exactly the same rules", async () => {
+    const network = { "x-real-ip": testNetwork() };
+    const started = await call(null, "POST", "/api/games", undefined, BASE, network);
+    expect(started.status).toBe(200);
+    const setCookie = started.headers.getSetCookie().find((c) => c.startsWith("bg_guest="))!;
+    expect(setCookie).toMatch(/HttpOnly/i);
+    expect(setCookie).toMatch(/SameSite=lax/i);
+    const guest = setCookie.split(";")[0];
+    const id = ((await started.json()) as { id: string }).id;
+
+    // The game page plays it as a guest.
+    expect(await (await call(guest, "GET", `/game/${id}`)).text()).not.toContain("/login?next=");
+
+    const photoUrl = `/api/games/${id}/rounds/1/photo`;
+    expect((await call(guest, "GET", photoUrl)).status).toBe(404);
+    expect(((await (await call(guest, "POST", `/api/games/${id}/round`)).json()) as GameState).round?.number).toBe(1);
+    expect((await call(guest, "GET", photoUrl)).status).toBe(200);
+    expect((await call(null, "GET", photoUrl)).status).toBe(404);
+    expect((await call(alice, "GET", photoUrl)).status).toBe(404);
+    expect((await call(alice, "GET", `/api/games/${id}`)).status).toBe(404);
+    // A made-up guest cookie is nobody.
+    expect((await call(`bg_guest=${"A".repeat(43)}`, "GET", `/api/games/${id}`)).status).toBe(401);
+
+    const guessed = (await (await call(guest, "POST", `/api/games/${id}/guess`, { round: 1, lat: 34.0705, lng: -118.4442 })).json()) as GameState;
+    expect(guessed.results[0].answer.lat).toBeTypeOf("number");
+    expect((await call(guest, "GET", photoUrl)).status).toBe(404);
+
+    // No reports, no versus, no account pages, no standing.
+    const report = await call(guest, "POST", `/api/games/${id}/rounds/1/report`, { reason: "unclear" });
+    expect(report.status).toBe(403);
+    expect(await report.json()).toEqual({ error: "account_required" });
+    expect((await call(guest, "POST", "/api/rooms")).status).toBe(401);
+    expect((await call(guest, "GET", "/api/me/standing")).status).toBe(401);
+    expect((await call(guest, "POST", "/api/account/username", { username: "guest_name" })).status).toBe(401);
+    expect((await call(guest, "POST", "/api/account/delete", { confirm: "x" })).status).toBe(401);
+
+    // The same browser keeps its guest: a second game, no new cookie.
+    const again = await call(guest, "POST", "/api/games", undefined, BASE, network);
+    expect(again.status).toBe(200);
+    expect(again.headers.getSetCookie().some((c) => c.startsWith("bg_guest="))).toBe(false);
+
+    // Signing in forgets the guest: nothing from guest play follows the player into the account.
+    const signedIn = await fetch(`${BASE}/api/dev/login?as=8`, { redirect: "manual", headers: { Cookie: guest } });
+    expect(signedIn.headers.getSetCookie().find((c) => c.startsWith("bg_guest="))).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+  });
+
+  it("stops one network from making guest games without limit", async () => {
+    const network = { "x-real-ip": testNetwork() };
+    const statuses: number[] = [];
+    // Each request has no cookie, so each one makes a new guest: the per-network guest limit (30 an hour) is what holds.
+    for (let i = 0; i < 31; i++) statuses.push((await call(null, "POST", "/api/games", undefined, BASE, network)).status);
+    expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
+    const refused = await call(null, "POST", "/api/games", undefined, BASE, network);
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: "rate_limited" });
   });
 
   it("refuses requests sent from another website", async () => {
@@ -170,6 +246,32 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
     expect((await call(carol, "POST", "/api/games")).status).toBe(200);
   });
 
+  it("changes a username from settings, at most once per 30 days, and shows the email only to its owner", async () => {
+    const before = (await admin.from("profiles").select("username").eq("id", (await admin.auth.admin.listUsers({ perPage: 200 })).data.users.find((u) => u.email === "dev-player-9@bruinguessr.test")!.id).single()).data!.username as string;
+    const renamed = `dev_9_${Date.now().toString(36)}`;
+    expect((await call(null, "POST", "/api/account/username", { username: renamed })).status).toBe(401);
+    expect((await call(bob, "POST", "/api/account/username", { username: renamed }, "https://evil.example")).status).toBe(400);
+    expect(await (await call(bob, "POST", "/api/account/username", { username: "sh1thead" })).json()).toMatchObject({ ok: false, problem: "not_allowed" });
+    expect(await (await call(bob, "POST", "/api/account/username", { username: "BruinGuessr" })).json()).toMatchObject({ ok: false, problem: "not_allowed" });
+    const changed = await call(bob, "POST", "/api/account/username", { username: renamed });
+    expect(changed.status).toBe(200);
+    expect(await changed.json()).toMatchObject({ ok: true, username: renamed, nextChangeAt: expect.any(Number) });
+    const again = await call(bob, "POST", "/api/account/username", { username: `${renamed}x` });
+    expect(again.status).toBe(409);
+    expect(await again.json()).toMatchObject({ ok: false, problem: "too_soon", nextChangeAt: expect.any(Number) });
+
+    const settings = await (await call(bob, "GET", "/settings")).text();
+    expect(settings).toContain("dev-player-9@bruinguessr.test");
+    expect(settings).toContain(renamed);
+    const asSeenByAlice = await call(alice, "GET", `/profile/${renamed}`);
+    expect(asSeenByAlice.status).toBe(200);
+    const profileHtml = await asSeenByAlice.text();
+    expect(profileHtml).toContain(renamed);
+    expect(profileHtml).not.toContain("@bruinguessr.test");
+    expect(await (await call(null, "GET", `/profile/${renamed.toUpperCase()}`)).text()).toContain(renamed);
+    expect(await (await call(null, "GET", `/profile/${before}`)).text()).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
+  });
+
   it("shows the leaderboard to anyone, without account IDs", async () => {
     const page = await call(null, "GET", "/leaderboard");
     expect(page.status).toBe(200);
@@ -248,5 +350,27 @@ describe.skipIf(!serverUp)("the game API over HTTP", () => {
     expect(((await (await call(bob, "GET", `/api/games/${id}`)).json()) as GameState).versus?.isHost).toBe(true);
     expect((await call(bob, "POST", `/api/rooms/${room.code}/leave`)).status).toBe(200);
     expect((await call(bob, "POST", `/api/rooms/${room.code}/join`)).status).toBe(404);
+  });
+
+  it("deletes an account when the username is typed, and the old session stops working", async () => {
+    const carol = await signIn(7);
+    const id = (await admin.auth.admin.listUsers({ perPage: 200 })).data.users.find((u) => u.email === "dev-player-7@bruinguessr.test")!.id;
+    const name = (await admin.from("profiles").select("username").eq("id", id).single()).data!.username as string;
+    expect((await call(carol, "POST", "/api/games")).status).toBe(200);
+
+    expect((await call(carol, "POST", "/api/account/delete", { confirm: "someone_else" })).status).toBe(400);
+    expect((await call(carol, "POST", "/api/account/delete", { confirm: name }, "https://evil.example")).status).toBe(400);
+    expect((await admin.auth.admin.getUserById(id)).data.user).not.toBeNull();
+
+    const deleted = await call(carol, "POST", "/api/account/delete", { confirm: name.toUpperCase() });
+    expect(deleted.status).toBe(200);
+    expect(deleted.headers.getSetCookie().some((c) => c.startsWith("sb-"))).toBe(true);
+    expect((await admin.auth.admin.getUserById(id)).data.user).toBeNull();
+    expect((await admin.from("profiles").select("id").eq("id", id)).data).toEqual([]);
+    expect((await admin.from("games").select("id").eq("created_by", id)).data).toEqual([]);
+
+    // A copy of the old session cookie is treated as signed out on every page.
+    expect(await (await call(carol, "GET", "/settings")).text()).toContain("/login?reason=");
+    expect(await (await call(null, "GET", `/profile/${name}`)).text()).toContain("NEXT_HTTP_ERROR_FALLBACK;404");
   });
 });

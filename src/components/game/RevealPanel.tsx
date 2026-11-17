@@ -20,12 +20,14 @@ type Props = {
   busy: boolean;
   /** Lets the game screen measure the panel, so the map keeps its pins clear of it. */
   panelRef?: React.Ref<HTMLElement>;
+  /** Guests cannot report photos: reports need an account. */
+  guest?: boolean;
 };
 
 const MAX = 5000;
 
 /** The card that slides up over the map after a guess: distance, points, credit, next. */
-export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOpenPhoto, onNext, busy, panelRef }: Props) {
+export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOpenPhoto, onNext, busy, panelRef, guest = false }: Props) {
   const bullseye = result.guess !== null && result.score >= MAX;
   const last = result.round >= roundCount;
 
@@ -81,7 +83,7 @@ export default function RevealPanel({ gameId, result, roundCount, photoUrl, onOp
         </div>
         <div className="mt-2.5 flex items-center justify-between gap-3 border-t-2 border-navy-line pt-2.5 sm:mt-3 sm:pt-3">
           <PhotoCredit credit={result.credit} />
-          <ReportButton gameId={gameId} round={result.round} alreadyReported={result.reported} />
+          {!guest && <ReportButton gameId={gameId} round={result.round} alreadyReported={result.reported} />}
         </div>
       </section>
     </>

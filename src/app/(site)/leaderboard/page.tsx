@@ -1,8 +1,5 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { AccountChip } from "@/components/home/Account";
-import SiteFooter from "@/components/SiteFooter";
-import Wordmark, { PinMark } from "@/components/Wordmark";
 import { formatPoints } from "@/lib/game/format";
 import { LEADERBOARD_PAGE_SIZE, ordinal, pageOfRank, type LeaderboardRow } from "@/lib/leaderboard";
 import { currentUser } from "@/lib/server/auth";
@@ -17,20 +14,7 @@ export const metadata = pageMetadata({
 
 export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
   return (
-    <main className="flex flex-1 flex-col bg-night text-paper">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 pt-5">
-        <Link href="/" className="flex items-center gap-2" aria-label="BruinGuessr home">
-          <PinMark className="h-8 w-auto" />
-          <span className="hidden sm:inline">
-            <Wordmark className="text-3xl" />
-          </span>
-        </Link>
-        <Suspense fallback={null}>
-          <AccountChip />
-        </Suspense>
-      </header>
-
-      <section className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-5 sm:py-10">
+    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <h1 className="display text-[clamp(3rem,10vw,5.5rem)]">
           Leader<span className="text-ucla-gold">board</span>
         </h1>
@@ -39,9 +23,7 @@ export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboar
         <Suspense fallback={<div className="mt-8 h-96 animate-pulse rounded-[20px] bg-navy" />}>
           <Board searchParams={searchParams} />
         </Suspense>
-      </section>
-      <SiteFooter />
-    </main>
+    </section>
   );
 }
 
@@ -59,7 +41,9 @@ function Row({ row }: { row: LeaderboardRow }) {
         {row.rank}
       </span>
       <span className="min-w-0 truncate text-lg font-semibold">
-        {row.username}
+        <Link href={`/profile/${row.username}`} className="hover:underline hover:decoration-2 hover:underline-offset-4">
+          {row.username}
+        </Link>
         {row.isYou && <span className="ml-2 rounded-full bg-paper px-2 py-0.5 text-xs font-bold text-night">You</span>}
         {row.mode === "versus" && <span className="ml-2 text-xs font-semibold text-sky">versus</span>}
       </span>

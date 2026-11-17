@@ -19,6 +19,8 @@ type Props = {
   /** Versus: going home also tells the room. Without it, Home is a plain link. */
   onHome?: () => void;
   busy: boolean;
+  /** A guest's game: no leaderboard line, an invitation to sign up instead. */
+  guest?: boolean;
 };
 
 type Standing = { you: Leaderboard["you"]; total: number };
@@ -51,6 +53,20 @@ function StandingLine({ gameId }: { gameId: string }) {
         {ordinal(you.rank)} of {formatPoints(standing.total)} on the leaderboard
       </Link>
     </p>
+  );
+}
+
+/** After a guest game: what an account would have done with this score. */
+function GuestInvite() {
+  return (
+    <div className="mt-2 flex animate-rise flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border-2 border-ucla-gold/60 bg-night/40 px-3 py-2 md:mt-3">
+      <p className="min-w-0 flex-1 basis-48 text-sm font-semibold">
+        Playing as a guest. Sign up to save your scores and get on the leaderboard.
+      </p>
+      <Link href="/login?mode=signup" className="btn btn-white !px-4 !py-2 !text-lg">
+        Sign up
+      </Link>
+    </div>
   );
 }
 
@@ -92,7 +108,7 @@ function rematchNote(versus: NonNullable<GameState["versus"]>): string {
 }
 
 /** After round five: every round side by side, the total, and "Play again". In a versus game, the final standings and "Rematch". */
-export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhoto, onPlayAgain, onHome, busy }: Props) {
+export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhoto, onPlayAgain, onHome, busy, guest = false }: Props) {
   const max = maxTotal(state);
   const versus = state.versus;
   const totals = versus?.players.map((p) => p.total) ?? [];
@@ -116,7 +132,7 @@ export default function SummaryPanel({ state, photos, focus, onFocus, onOpenPhot
           </h1>
           <p className="font-semibold text-sky md:mt-1">out of {formatPoints(max)} points</p>
         </div>
-        {state.status === "completed" && <StandingLine gameId={state.id} />}
+        {state.status === "completed" && (guest ? <GuestInvite /> : <StandingLine gameId={state.id} />)}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

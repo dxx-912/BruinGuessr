@@ -1,25 +1,32 @@
 import Link from "next/link";
 
-/** The small print under every page that is not the game itself. */
-export default function SiteFooter({ children }: { children?: React.ReactNode }) {
+/** One quiet line under every page that is not the game itself. */
+export default function SiteFooter() {
+  const isDev = process.env.NODE_ENV === "development";
   return (
-    <footer className="mx-auto w-full max-w-6xl px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-sm text-sky">
+    <footer className="px-4 pb-4 pt-8 text-xs text-sky sm:px-6">
       <p>
-        BruinGuessr is a student project. It is not affiliated with or endorsed by UCLA. Photos by Mapillary and Wikimedia Commons contributors. Map data ©
-        OpenStreetMap contributors, map tiles by OpenFreeMap.
-      </p>
-      <nav aria-label="More pages" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 font-semibold">
-        <Link href="/" className="underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
-          Home
-        </Link>
-        <Link href="/leaderboard" className="underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
-          Leaderboard
-        </Link>
-        <Link href="/credits" className="underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
+        A student project, not affiliated with UCLA.{" "}
+        <Link href="/credits" className="font-semibold underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
           Photo and map credits
         </Link>
-      </nav>
-      {children}
+        {isDev && (
+          <>
+            {" · Development: "}
+            <Link href="/dev/boundary" className="underline">
+              boundary
+            </Link>
+            {", "}
+            <Link href="/dev/photos" className="underline">
+              photos
+            </Link>
+            {", "}
+            <a href="/api/dev/login?as=1" className="underline">
+              test player 1
+            </a>
+          </>
+        )}
+      </p>
     </footer>
   );
 }

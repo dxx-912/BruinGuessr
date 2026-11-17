@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   });
   if (error || !data.url) {
     console.error(`[auth] could not start Google sign in: ${error?.message ?? "no URL returned"}`);
-    return NextResponse.redirect(`${origin}/?signin=failed`, 303);
+    return NextResponse.redirect(`${origin}/login?error=failed&next=${encodeURIComponent(next)}`, 303);
   }
   return NextResponse.redirect(data.url, 303);
 }

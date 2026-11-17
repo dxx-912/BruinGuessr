@@ -1,8 +1,5 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import SiteFooter from "@/components/SiteFooter";
-import SiteHeader from "@/components/SiteHeader";
 import type { CreditGroup, License, PhotoSource } from "@/lib/credits";
 import { photoCredits } from "@/lib/server/credits";
 import { pageMetadata } from "@/lib/site";
@@ -113,14 +110,7 @@ async function Photographers() {
 
 export default function CreditsPage() {
   return (
-    <main className="flex flex-1 flex-col bg-night text-paper">
-      <SiteHeader>
-        <Link href="/leaderboard" className="btn btn-quiet !rounded-full !px-4 !py-1.5 !text-lg">
-          Leaderboard
-        </Link>
-      </SiteHeader>
-
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-5 sm:py-10">
+    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <h1 className="display text-[clamp(3rem,10vw,5.5rem)]">
           Cred<span className="text-ucla-gold">its</span>
         </h1>
@@ -166,9 +156,6 @@ export default function CreditsPage() {
             Set in Barlow and Barlow Condensed by Jeremy Tribby, under the <External href="https://openfontlicense.org">SIL Open Font License</External>.
           </p>
         </section>
-      </div>
-
-      <SiteFooter />
-    </main>
+    </div>
   );
 }

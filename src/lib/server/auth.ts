@@ -4,9 +4,11 @@ import { sessionClient } from "./supabase";
 
 export type CurrentUser = {
   id: string;
-  /** From the Google account. Shown until usernames arrive in Phase 3. */
+  /** From the Google account. */
   name: string | null;
   avatarUrl: string | null;
+  /** The Google address. Shown only to the account's owner, on the settings page. */
+  email: string | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -32,6 +34,7 @@ export async function currentUser(): Promise<CurrentUser | null> {
     id: claims.sub,
     name: text(meta.full_name) ?? text(meta.name),
     avatarUrl: avatar && avatar.startsWith("https://") ? avatar : null,
+    email: typeof claims.email === "string" && claims.email ? claims.email : null,
   };
 }
 

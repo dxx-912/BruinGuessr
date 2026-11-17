@@ -20,7 +20,9 @@ npm run icons:build  # redraw the favicon and app icons (only when the mark chan
 
 ## How the game works
 
-Sign in is Google only (Supabase Auth). On the first sign in a player picks a username (`/welcome`); then they press "Play solo" and play five rounds.
+Sign in is Google only (Supabase Auth), through one page, `/login` ("Log in" and "Sign up" both lead there). On the first sign in a player picks a username (`/welcome`). Anyone can press Solo and play five rounds; signed out, that is a guest game (see "Guests" below).
+
+Every page except a game and a versus lobby shares one layout (`src/app/(site)/layout.tsx`): a side bar on screens 1024 px and wider, a bottom tab bar below that (Play, Leaderboard, Profile, Settings), and the account corner at top right.
 
 - **The server runs the game.** Every rule, deadline and score is a Postgres function in `supabase/migrations/` that uses the database clock. The browser only calls `/api/games/...` routes; it never talks to the database, and every table refuses the public key.
 - **Each round's photo has a per-round address**: `/api/games/<game>/rounds/<n>/photo`. It works only for the player in that game and only while that round is open. Once the round is scored it answers 404 for good. The photo's real filename in Storage never reaches the browser, and the Storage bucket is private.
@@ -28,6 +30,9 @@ Sign in is Google only (Supabase Auth). On the first sign in a player picks a us
 - **A round opens 2.5 seconds before its clock starts.** The photo loads behind the "Round N" card, so the player gets the full 30 seconds.
 - **Reporting.** The reveal screen has "Report photo". A photo reported by three different accounts leaves rotation (it is hidden, never deleted). Each account can file 10 reports in 24 hours. Review them with `npm run photos:reports`.
 - **Usernames** are 3 to 16 letters, numbers or underscores, unique ignoring case, and picked once. A basic profanity filter (the `obscenity` package, plus a short list of official-looking names) runs on the server. If one slips through, `npm run usernames -- reset <name>` clears it and the player picks again on their next visit.
+- **Guests.** A signed-out visitor can play solo. The guest is a random token in an http-only cookie; the database keeps only its hash, beside a guest profile with no account. Guest games use exactly the same functions and anti-cheat path as every other game. Guests never get a username, so they never reach the leaderboard; they cannot report photos; versus needs an account. Signing in forgets the guest, and guest games are never moved onto an account. Guests not seen for 7 days are deleted with their games. Rate limits (columns in `settings`): 30 new guests an hour per network, and 20 guest games an hour per guest, 60 per network, 1,500 across all guests. The network is the visitor's IP address as Vercel reports it, stored only as an HMAC.
+- **Profiles** (`/profile/<username>`, public): join date, rank, best game, games played, average per round, bullseyes, versus played and won, and recent games with each round's distance and points. Never the email, never a photo's location.
+- **Settings** (`/settings`): change the username (same rules as the first pick, once every 30 days), see the Google email (shown to its owner only), log out, delete the account (type the username to confirm). Deleting removes the profile, solo games, reports and leaderboard entry; versus games stay for the other players.
 - **Leaderboard** (`/leaderboard`, open to everyone): one row per account, its best completed game, ties to whoever got there first. It is computed from `game_players` joined to `games`, so a completed versus game counts the same way as a solo game. Signed-in players see their own rank above the table, and their row pinned under it when it is on another page.
 
 ### Versus
@@ -67,7 +72,7 @@ The live site uses the same database, so test accounts are flagged (`profiles.is
 | Command | What it checks | Needs |
 |---|---|---|
 | `npm test` | Scoring, geometry, the photo pipeline, formatting, username rules and the profanity filter, room codes | nothing |
-| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, usernames, leaderboard ranking, versus (five players, guesses at the same moment, dropping off and rejoining, the host leaving, rematch, versus scores on the leaderboard), and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
+| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, usernames, leaderboard ranking, versus (five players, guesses at the same moment, dropping off and rejoining, the host leaving, rematch, versus scores on the leaderboard), guests and their rate limits, profiles, username changes, account deletion, and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
 | `npm run photos:report` | Photo pool and live anti-cheat checks | `.env.local` |
 
 The live tests create throwaway accounts and games and delete them when they finish.

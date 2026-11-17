@@ -121,6 +121,8 @@ export type GameError =
   | "daily_cap"
   | "bad_reason"
   | "no_username"
+  | "account_required"
+  | "rate_limited"
   | "room_locked"
   | "room_full"
   | "not_in_room"

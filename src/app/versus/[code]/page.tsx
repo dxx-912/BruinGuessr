@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import LoadingMark from "@/components/LoadingMark";
-import SignInForm from "@/components/SignInForm";
+import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import { currentPlayer } from "@/lib/server/profile";
 import { pageMetadata } from "@/lib/site";
@@ -67,10 +67,15 @@ function Invitation({ code, next }: { code: string; next: string }) {
         <p className="mt-6 max-w-xl text-xl text-sky">
           Everyone gets the same five photos from around UCLA&rsquo;s campus and the same 30 seconds to pin each one on the map. Closest pins win the room.
         </p>
-        <div className="mt-7">
-          <SignInForm next={next} label="Sign in with Google to join" />
-          <p className="mt-3 text-sm font-semibold text-sky">Free. All you need is a Google account. You come straight back to this room.</p>
+        <div className="mt-7 flex flex-wrap gap-3">
+          <Link href={`/login?mode=signup&reason=versus&next=${encodeURIComponent(next)}`} className="btn btn-gold !px-6 !py-4 !text-2xl">
+            Sign up to join
+          </Link>
+          <Link href={`/login?reason=versus&next=${encodeURIComponent(next)}`} className="btn btn-blue !px-6 !py-4 !text-2xl">
+            Log in
+          </Link>
         </div>
+        <p className="mt-3 text-sm font-semibold text-sky">Versus needs an account. It&rsquo;s free with Google, and you come straight back to this room.</p>
       </section>
     </main>
   );

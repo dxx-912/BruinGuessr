@@ -1,5 +1,5 @@
 import { roundPhoto } from "@/lib/server/game";
-import { isUuid, requireUser, roundNumber } from "@/lib/server/http";
+import { isUuid, requirePlayer, roundNumber } from "@/lib/server/http";
 
 const HEADERS = {
   // Never keep a copy under this address, anywhere.
@@ -22,7 +22,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/games/[id]/
   const { id, n } = await ctx.params;
   const round = roundNumber(n);
   if (!isUuid(id) || round === null) return gone();
-  const user = await requireUser();
+  const user = await requirePlayer();
   if (user instanceof Response) return gone();
 
   const photo = await roundPhoto(id, user.id, round);

@@ -25,7 +25,7 @@ export default function VersusHome({ rejoinCode }: { rejoinCode: string | null }
       router.push(`/versus/${room.code}`);
     } catch (err) {
       setHosting(false);
-      if (err instanceof ApiError && err.code === "unauthorized") router.replace(`/?signin=required&next=${encodeURIComponent("/versus")}`);
+      if (err instanceof ApiError && err.code === "unauthorized") router.replace(`/login?reason=versus&next=${encodeURIComponent("/versus")}`);
       else if (err instanceof ApiError && err.code === "no_username") router.push(`/welcome?next=${encodeURIComponent("/versus")}`);
       else setProblem(err instanceof ApiError && err.code === "network" ? "No connection. Check your internet and try again." : "The room could not be made. Try again in a moment.");
     }

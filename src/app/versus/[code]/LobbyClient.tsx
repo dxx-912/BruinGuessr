@@ -42,7 +42,7 @@ export default function LobbyClient({ code }: { code: string | null }) {
     (err: unknown) => {
       const reason = err instanceof ApiError ? err.code : "server_error";
       const here = `/versus/${code}`;
-      if (reason === "unauthorized") router.replace(`/?signin=required&next=${encodeURIComponent(here)}`);
+      if (reason === "unauthorized") router.replace(`/login?reason=versus&next=${encodeURIComponent(here)}`);
       else if (reason === "no_username") router.replace(`/welcome?next=${encodeURIComponent(here)}`);
       else if (reason === "not_found" || reason === "room_locked" || reason === "room_full") setProblem(reason);
       else setNotice(reason === "network" ? "Connection problem. Check your internet." : "Something went wrong. Trying again…");

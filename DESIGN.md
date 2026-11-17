@@ -45,7 +45,13 @@ Gold always carries dark text (`night`). Blue and navy carry `paper` text.
 
 ## Screens
 
-**Home.** Navy field, the campus outline large and faint in gold line behind the content, one gold pin dropped on it. Wordmark "BRUIN" in white, "GUESSR" in gold. One line of explanation. A large gold "Play solo" tile; under it a navy "Versus" tile with a blue "Play versus" button. Account chip at top right. Signed out, the main button is "Sign in with Google to play".
+**Site layout (Phase 6a; Phase 6c restyles it).** Every page but a game and a versus lobby. From 1024 px wide: a navy side bar (240 px) with the mark and wordmark at the top and four items, Play, Leaderboard, Profile, Settings, each an icon and a display-type label; the current one is a gold pill with dark text. Narrower: the same four as a bottom tab bar (icon over a small label, 56 px tall, gold for the current one) above the home bar, and the mark at top left (the wordmark from 400 px wide). Top right on every page: signed in, a pill with the avatar, the username and a chevron that opens a small panel (Profile, Settings, Log out); signed out, a quiet "Log in" and a gold "Sign up". The footer is one line: "A student project, not affiliated with UCLA" and the credits link.
+
+**Play page (Phase 6a).** "KNOW UCLA?" with UCLA in gold, the subheading, then two big tiles side by side (stacked on a phone): gold Solo and blue Versus, each a big display word with one sentence under it. Below: three Look / Pin / Score panels and a "Top players" row of five.
+
+**Profile and settings (Phase 6a).** Profile: an initial in a blue circle (never the Google photo), the name large, a row of six stat panels, then recent games as panels that open to their rounds. Settings: three panels (Username, Account, Delete account, the last with a red border and a red button). The red button (`btn-red`, alarm red with a dark lip) is only for deleting.
+
+**Home (Phases 1 to 5, replaced by the Play page above).** Navy field, the campus outline large and faint in gold line behind the content, one gold pin dropped on it. Wordmark "BRUIN" in white, "GUESSR" in gold. One line of explanation. A large gold "Play solo" tile; under it a navy "Versus" tile with a blue "Play versus" button. Account chip at top right. Signed out, the main button is "Sign in with Google to play".
 
 **Round.** The photo fills the screen (`contain` over a blurred copy of itself, so nothing is cropped). Scroll to zoom, drag to pan.
 - Top left: small wordmark and a quit control.

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { safeNextPath } from "@/lib/server/auth";
+import { forgetGuest } from "@/lib/server/guest";
 import { usernameOf } from "@/lib/server/profile";
 import { adminClient, sessionClient } from "@/lib/server/supabase";
 
@@ -34,6 +35,7 @@ export async function GET(request: Request) {
   // The live site shares this database. Test accounts are flagged so their
   // games never show on the public leaderboard.
   if (data.user) await admin.from("profiles").upsert({ id: data.user.id, is_test: true });
+  await forgetGuest();
 
   // Like a real first sign in: no username yet means the username page first.
   const next = safeNextPath(url.searchParams.get("next"));
