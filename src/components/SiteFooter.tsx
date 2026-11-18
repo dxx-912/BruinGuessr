@@ -19,6 +19,14 @@ export default function SiteFooter() {
         <a href="https://www.linkedin.com/in/dxing01/" target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
           Daniel Xing
         </a>
+        {" · "}
+        <Link href="/privacy" className="font-semibold underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
+          Privacy
+        </Link>
+        {" · "}
+        <Link href="/terms" className="font-semibold underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
+          Terms
+        </Link>
         {isDev && (
           <>
             {" · Development: "}

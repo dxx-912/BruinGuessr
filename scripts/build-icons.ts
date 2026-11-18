@@ -5,8 +5,9 @@
  *
  *   npm run icons:build
  *
- * Writes src/app/icon.svg, src/app/favicon.ico, src/app/apple-icon.png and
- * public/icons/*.png. The output is committed; run this again only when the
+ * Writes src/app/icon.svg, src/app/favicon.ico, src/app/apple-icon.png,
+ * public/icons/*.png and the square logos in public/brand/ (for Google's
+ * sign-in branding). The output is committed; run this again only when the
  * mark changes.
  */
 import { mkdir, writeFile } from "node:fs/promises";
@@ -94,6 +95,9 @@ async function main() {
   await write(join(root, "public/icons/icon-192.png"), await png(tab, 192));
   await write(join(root, "public/icons/icon-512.png"), await png(tab, 512));
   await write(join(root, "public/icons/icon-maskable-512.png"), await png(maskable, 512));
+  // The logo for Google's sign-in screen (Google Auth Platform → Branding): a 120 px square.
+  await write(join(root, "public/brand/logo-120.png"), await png(square, 120));
+  await write(join(root, "public/brand/logo-512.png"), await png(square, 512));
 }
 
 main().catch((err) => {
