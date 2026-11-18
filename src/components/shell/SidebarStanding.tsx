@@ -3,7 +3,7 @@ import { TrophyIcon } from "@/components/art/icons";
 import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
 import { ordinal, pageOfRank } from "@/lib/leaderboard";
-import { currentPlayer, leaderboard } from "@/lib/server/profile";
+import { myStanding } from "@/lib/server/profile";
 
 const CARD = "rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgb(39_116_174/0.18),rgb(6_24_43/0.55))] p-4 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]";
 
@@ -13,9 +13,9 @@ const CARD = "rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,r
  * Signed out: what an account is for, and Sign up.
  */
 export default async function SidebarStanding() {
-  const player = await currentPlayer();
+  const standing = await myStanding();
 
-  if (!player) {
+  if (!standing) {
     return (
       <div className={CARD}>
         <p className="heading text-xl">Get on the board</p>
@@ -27,8 +27,7 @@ export default async function SidebarStanding() {
     );
   }
 
-  const board = await leaderboard(player.id, 1, 0);
-  const you = board.you;
+  const { you, total } = standing;
 
   if (!you) {
     return (
@@ -54,7 +53,7 @@ export default async function SidebarStanding() {
       <p className="mt-2 flex items-center gap-2 text-sm font-semibold">
         <RankDisc rank={you.rank} className="h-7 w-7 text-base" />
         <span>
-          {ordinal(you.rank)} <span className="text-sky">of {formatPoints(board.total)}</span>
+          {ordinal(you.rank)} <span className="text-sky">of {formatPoints(total)}</span>
         </span>
         <span aria-hidden className="ml-auto text-sky transition-transform group-hover:translate-x-0.5">
           →

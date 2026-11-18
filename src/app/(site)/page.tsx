@@ -4,10 +4,13 @@ import { Suspense } from "react";
 import { CampusHero } from "@/components/art/CampusScene";
 import { CrownIcon, EyeIcon, PinIcon, TargetIcon } from "@/components/art/icons";
 import { SoloTile, VersusTile } from "@/components/home/PlayButton";
+import { ShowcaseStack, ShowcaseStrip } from "@/components/home/Showcase";
+import { PinMark } from "@/components/Wordmark";
 import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
 import type { LeaderboardRow } from "@/lib/leaderboard";
-import { currentPlayer, leaderboard } from "@/lib/server/profile";
+import { leaderboard, myStanding } from "@/lib/server/profile";
+import { SHOWCASE_COUNT, showcaseBatch } from "@/lib/server/showcase";
 
 const STEPS = [
   { title: "Look", body: "A photo from somewhere on UCLA's campus. No street names, no hints.", icon: <EyeIcon />, chip: "bg-ucla-blue" },
@@ -102,17 +105,17 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
 
       <section
         aria-labelledby="headline"
-        className={`@container relative md:flex md:min-h-[calc(100dvh-4.5rem-3.5rem-env(safe-area-inset-bottom))] md:items-center lg:min-h-[calc(100dvh-4.5rem)] ${HERO_VARS}`}
+        className={`@container relative ${HERO_VARS}`}
       >
         <HeroSky />
 
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 md:ml-[var(--ml)] md:mr-0">
-          <div className="pt-3 sm:pt-6 md:max-w-[calc(var(--f)*100%)] md:pb-16 md:pt-8">
+          <div className="pt-3 sm:pt-6 md:max-w-[calc(var(--f)*100%)] md:pb-14 md:pt-12 lg:pt-14">
             <h1 id="headline" className="display text-[clamp(3.6rem,15cqw,5.25rem)] md:whitespace-nowrap md:text-[clamp(4.25rem,8.8cqw,7rem)]">
               Know <span className="text-ucla-gold">UCLA?</span>
             </h1>
             <p className="mt-3 max-w-lg text-lg leading-snug text-[#d5e4f5] sm:text-xl md:mt-4 md:text-[1.4rem] md:leading-snug">
-              How well do you know campus?
+              Real Bruins know campus inside out. Five rounds to prove you actually go to class.
             </p>
 
             {/* Phones: the scene between the text and the tiles, its empty sky tucked under the text. Its height
@@ -121,10 +124,13 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
               <CampusHero className="h-[clamp(180px,34svh,300px)] w-full object-cover object-bottom" style={TOP_MASK} />
             </div>
 
-            <div className="relative md:mt-[clamp(2.5rem,5dvh,4rem)]">
+            <div className="relative md:mt-10">
               <RoyceScene />
+              <Suspense fallback={null}>
+                <Showcase kind="stack" />
+              </Suspense>
               <div className="grid gap-4 xl:grid-cols-2 xl:gap-5">
-                <Suspense fallback={<SoloTile needsUsername={false} />}>
+                <Suspense fallback={<SoloTile needsUsername={false} standing={{ kind: "none" }} />}>
                   <Solo />
                 </Suspense>
                 <VersusTile />
@@ -136,6 +142,13 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
           </div>
         </div>
       </section>
+
+      {/* Phones: the photos as a strip under the tiles. */}
+      <div className="md:hidden">
+        <Suspense fallback={null}>
+          <Showcase kind="strip" />
+        </Suspense>
+      </div>
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* How it plays: three frosted cards over the foot of the scene */}
@@ -192,6 +205,18 @@ function HeroSky() {
   );
 }
 
+/** Where the drawing sits (see HERO_VARS); the photo stack is placed in the same box, in the drawing's units. */
+const DRAWING_BOX = "bottom-[calc(var(--h)*-0.17)] left-[calc(var(--te)-var(--bl)-var(--w)*var(--xl)/1600)] h-[var(--h)] w-[var(--w)]";
+
+/**
+ * The "Where is this?" stack, in the drawing's units (1600 × 720): its bottom
+ * centre at (`--sx`, `--sy`), `--sw` wide. Up to 1535 px it floats in the sky
+ * just above the right tower (whose top is at y 213, its outer edge at x 1017);
+ * from 1536 px, where Royce is drawn larger and rises higher, it hangs over the
+ * right wing instead, clear of the tower. Never over a tower.
+ */
+const STACK_AT = "[--sx:945] [--sy:180] [--sw:215] xl:[--sx:955] xl:[--sw:235] 2xl:[--sx:1128] 2xl:[--sy:440] 2xl:[--sw:205]";
+
 /**
  * From 768 px: the scene's sky across the full width, lined up with the
  * drawing, then Royce. Placed from the tiles' wrapper (see HERO_VARS), so the
@@ -205,21 +230,85 @@ function RoyceScene() {
         className="absolute -z-10 bottom-[calc(var(--h)*-0.17)] left-[calc(var(--bl)*-1)] h-[var(--h)] w-[100cqw]"
         style={{ ...SKY_MASK, backgroundImage: SCENE_SKY }}
       />
-      <div className="absolute -z-10 bottom-[calc(var(--h)*-0.17)] left-[calc(var(--te)-var(--bl)-var(--w)*var(--xl)/1600)] h-[var(--h)] w-[var(--w)]">
+      <div className={`absolute -z-10 ${DRAWING_BOX}`}>
         <CampusHero className="h-full w-full" style={SCENE_MASK} />
+        <SkyPins />
       </div>
     </div>
   );
 }
 
+/**
+ * A few gold map pins floating in the sky around Royce, as if dropped by
+ * players and not yet landed. Placed in the drawing's own units (1600 × 720),
+ * so they keep their places around the towers at any size. Each bobs gently
+ * on its own beat; with "reduce motion" on they stay still.
+ */
+const PINS = [
+  { x: 505, y: 215, size: 2.1, delay: "0s", tilt: "-8deg", fade: 0.9, wide: true },
+  { x: 800, y: 160, size: 1.6, delay: "-2.2s", tilt: "6deg", fade: 0.75, wide: true },
+  { x: 660, y: 55, size: 1.2, delay: "-3.3s", tilt: "-4deg", fade: 0.55, wide: true },
+  // Beside the right tower; from 1536 px the photo stack hangs there instead.
+  { x: 1058, y: 268, size: 1.85, delay: "-4.1s", tilt: "10deg", fade: 0.85, wide: false },
+];
+
+function SkyPins() {
+  return (
+    <>
+      {PINS.map((pin) => (
+        <span
+          key={pin.x}
+          className={`absolute motion-safe:animate-float ${pin.wide ? "" : "2xl:hidden"}`}
+          style={{
+            left: `${(pin.x / 1600) * 100}%`,
+            top: `${(pin.y / 720) * 100}%`,
+            width: `${pin.size}%`,
+            opacity: pin.fade,
+            animationDelay: pin.delay,
+            ["--tilt" as string]: pin.tilt,
+            transform: `rotate(${pin.tilt})`,
+            filter: "drop-shadow(0 0 10px rgb(255 209 0 / 0.45)) drop-shadow(0 8px 6px rgb(6 24 43 / 0.5))",
+          }}
+        >
+          <PinMark className="block h-auto w-full" />
+        </span>
+      ))}
+    </>
+  );
+}
+
 async function Solo() {
-  const player = await currentPlayer();
-  return <SoloTile needsUsername={!!player && !player.username} />;
+  const standing = await myStanding();
+  if (!standing) return <SoloTile needsUsername={false} standing={{ kind: "guest" }} />;
+  const { player, you, total } = standing;
+  return (
+    <SoloTile
+      needsUsername={!player.username}
+      standing={you ? { kind: "best", score: you.score, rank: you.rank, total } : { kind: "none" }}
+    />
+  );
+}
+
+/**
+ * The "Where is this?" photos. The batch number is read when the page is asked
+ * for (it changes every few hours), so it waits for the request.
+ */
+async function Showcase({ kind }: { kind: "stack" | "strip" }) {
+  await connection();
+  const batch = showcaseBatch();
+  if (kind === "strip") return <ShowcaseStrip batch={batch} count={SHOWCASE_COUNT} />;
+  return (
+    <div className={`pointer-events-none absolute hidden md:block ${DRAWING_BOX} ${STACK_AT}`}>
+      <div className="pointer-events-auto absolute left-[calc(var(--sx)/16*1%)] top-[calc(var(--sy)/7.2*1%)] w-[calc(var(--sw)/16*1%)] -translate-x-1/2 -translate-y-full">
+        <ShowcaseStack batch={batch} count={SHOWCASE_COUNT} />
+      </div>
+    </div>
+  );
 }
 
 /** Under the tiles, for visitors who are not signed in. */
 async function GuestNote() {
-  if (await currentPlayer()) return null;
+  if (await myStanding()) return null;
   return (
     <p className="mt-6 font-semibold text-[#c4d9f0] md:text-[1.05rem]">
       <Link href="/login?mode=signup" className="text-paper underline decoration-sky/60 decoration-2 underline-offset-4 hover:decoration-ucla-gold">
@@ -264,7 +353,7 @@ const MEDAL: Record<1 | 2 | 3, { face: string; ring: string; height: string }> =
 async function TopPlayers() {
   // Read when the page is asked for, not when the site is built.
   await connection();
-  const player = await currentPlayer();
+  const player = (await myStanding())?.player;
   const board = await leaderboard(player?.id ?? null, TOP, 0);
   const at = (rank: number) => board.rows.find((row) => row.rank === rank) ?? null;
 

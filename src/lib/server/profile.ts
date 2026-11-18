@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { Leaderboard } from "@/lib/leaderboard";
 import type { PlayerProfile } from "@/lib/profile";
 import type { UsernameProblem } from "@/lib/username";
@@ -56,6 +57,18 @@ export async function leaderboard(userId: string | null, limit: number, offset: 
   if (error) throw new Error(`[leaderboard] could not be read: ${error.message}`);
   return data as Leaderboard;
 }
+
+/**
+ * The signed-in player with their best solo game and rank, or null when
+ * signed out. Read once per request: the side bar card and the Play page's
+ * Solo tile both show it.
+ */
+export const myStanding = cache(async () => {
+  const player = await currentPlayer();
+  if (!player) return null;
+  const board = await leaderboard(player.id, 1, 0);
+  return { player, you: board.you, total: board.total };
+});
 
 /** A player's public profile, found by username ignoring case. Null if there is no such player. */
 export async function playerProfile(username: string, viewerId: string | null): Promise<PlayerProfile | null> {

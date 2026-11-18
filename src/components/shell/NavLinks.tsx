@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
 
 type Item = { href: string; label: string; icon: React.ReactNode; match: (path: string) => boolean };
 
@@ -60,8 +61,21 @@ const ITEMS: Item[] = [
  * phone (and anything narrower than a laptop) they are the bottom tab bar.
  */
 export default function NavLinks({ variant }: { variant: "side" | "tabs" }) {
-  return <NavList variant={variant} path={usePathname()} />;
+  const path = usePathname();
+  // With a Proxy in front, the pathname a prerendered page was made with can differ from the
+  // browser's, and React keeps the server's attributes when it hydrates, so on a fresh load the
+  // Play item was not lit in production. Hydrate with nothing marked, then mark the browser's
+  // pathname: that second render really updates the DOM. (Next.js docs, usePathname, "Avoid
+  // hydration mismatch with rewrites".)
+  const hydrated = useSyncExternalStore(
+    noop,
+    () => true,
+    () => false,
+  );
+  return <NavList variant={variant} path={hydrated ? path : null} />;
 }
+
+const noop = () => () => {};
 
 /**
  * The links themselves. With no path (while the page streams in), none is marked as current.

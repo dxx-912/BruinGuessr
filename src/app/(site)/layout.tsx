@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import AccountArea, { AccountAreaPlaceholder } from "@/components/shell/AccountArea";
+import JoinCodeForm from "@/components/JoinCodeForm";
+import { ROOM_CODE_LENGTH } from "@/lib/versus/types";
+import AccountArea,{ AccountAreaPlaceholder } from "@/components/shell/AccountArea";
 import NavLinks, { NavList } from "@/components/shell/NavLinks";
 import SidebarStanding, { SidebarStandingPlaceholder } from "@/components/shell/SidebarStanding";
 import SiteFooter from "@/components/SiteFooter";
@@ -28,7 +30,14 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
             <NavLinks variant="side" />
           </Suspense>
         </nav>
-        <div className="mt-auto pt-6">
+        {/* The empty middle of the bar: a room code goes straight to the room. */}
+        <div className="flex flex-1 items-center py-6">
+          <div className="w-full rounded-[18px] border border-white/10 bg-night/45 p-4 shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]">
+            <JoinCodeForm variant="side" label="Join with a code" />
+            <p className="mt-2 text-sm text-sky">The {ROOM_CODE_LENGTH} letters a friend sent you.</p>
+          </div>
+        </div>
+        <div>
           <Suspense fallback={<SidebarStandingPlaceholder />}>
             <SidebarStanding />
           </Suspense>

@@ -41,6 +41,9 @@
   --animate-fill: fill 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) 0.45s both;
   /* The pin on the loading mark. */
   --animate-hop: hop 0.9s cubic-bezier(0.3, 0, 0.3, 1) infinite;
+  /* The gold pins floating in the Play page's sky, and the phone's strip of photos. */
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-drift: drift 48s linear infinite;
 }
 
 @keyframes pop {
@@ -70,6 +73,13 @@
 @keyframes hop {
   0%, 100% { transform: translateY(0); }
   45% { transform: translateY(-13px); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
+  50% { transform: translateY(-9px) rotate(calc(var(--tilt, 0deg) * -1)); }
+}
+@keyframes drift {
+  to { transform: translateX(-50%); }
 }
 @keyframes drop {
   from { opacity: 0; transform: translateY(-70px); }
