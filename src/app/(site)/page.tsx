@@ -21,10 +21,14 @@ const TOP = 10;
 /**
  * Where Royce sits in the wide hero, as CSS custom properties on the hero
  * (container query units, so it follows the hero's width, not the window's):
- * - `--f`: the share of the centred 72rem column the text takes;
+ * - `--ml`: the gap left of the 72rem column: a quarter of the spare width,
+ *   not half, so on wide screens the text and Royce sit left of centre and
+ *   the group reads as balanced against Royce bleeding off the right edge;
+ * - `--f`: the share of that column the text takes;
  * - `--te`: where the text column ends, so where the scene may start;
  * - `--xl` / `--xw`: the window of the 1600-unit drawing to show, from its
- *   left edge and how wide. Both towers sit inside it with wing on each side,
+ *   left edge and how wide (wider from 1536 px, so more right wing shows and
+ *   Royce sits further left). Both towers sit inside it with wing on each side,
  *   so the right tower is never cut: the window's right edge falls in the
  *   right wing, about a tower's width past it (the towers span x 583 to 1015).
  * - `--w` / `--h`: the drawing's size that puts exactly that window between
@@ -36,10 +40,11 @@ const TOP = 10;
  * building and the text stay together however tall the window is.
  */
 const HERO_VARS =
-  "[--f:0.47] xl:[--f:0.5] [--xl:430] [--xw:680] xl:[--xl:420] xl:[--xw:700] " +
-  "[--te:calc((100cqw-min(100cqw,72rem))/2+min(100cqw,72rem)*var(--f))] " +
+  "[--f:0.47] xl:[--f:0.5] [--xl:430] [--xw:680] xl:[--xl:420] xl:[--xw:700] 2xl:[--xl:400] 2xl:[--xw:860] " +
+  "[--ml:calc((100cqw-min(100cqw,72rem))*0.25)] " +
+  "[--te:calc(var(--ml)+min(100cqw,72rem)*var(--f))] " +
   "[--w:calc((100cqw-var(--te))*1600/var(--xw))] [--h:calc(var(--w)*0.45)] " +
-  "[--bl:calc((100cqw-min(100cqw,72rem))/2+1.5rem)]";
+  "[--bl:calc(var(--ml)+1.5rem)]";
 
 /**
  * The drawing's sky, stop for stop down to the wings' roofline
@@ -101,13 +106,13 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
       >
         <HeroSky />
 
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 md:ml-[var(--ml)] md:mr-0">
           <div className="pt-3 sm:pt-6 md:max-w-[calc(var(--f)*100%)] md:pb-16 md:pt-8">
             <h1 id="headline" className="display text-[clamp(3.6rem,15cqw,5.25rem)] md:whitespace-nowrap md:text-[clamp(4.25rem,8.8cqw,7rem)]">
               Know <span className="text-ucla-gold">UCLA?</span>
             </h1>
             <p className="mt-3 max-w-lg text-lg leading-snug text-[#d5e4f5] sm:text-xl md:mt-4 md:text-[1.4rem] md:leading-snug">
-              Real Bruins know campus inside out. Five rounds to prove you actually go to class.
+              How well do you know campus?
             </p>
 
             {/* Phones: the scene between the text and the tiles, its empty sky tucked under the text. Its height
@@ -217,7 +222,6 @@ async function GuestNote() {
   if (await currentPlayer()) return null;
   return (
     <p className="mt-6 font-semibold text-[#c4d9f0] md:text-[1.05rem]">
-      No account needed for solo: play as a guest.{" "}
       <Link href="/login?mode=signup" className="text-paper underline decoration-sky/60 decoration-2 underline-offset-4 hover:decoration-ucla-gold">
         Sign up
       </Link>{" "}

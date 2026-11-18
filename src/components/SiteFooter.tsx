@@ -15,6 +15,10 @@ export default function SiteFooter() {
         <Link href="/credits" className="font-semibold underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
           Photo and map credits
         </Link>
+        {" · Built by "}
+        <a href="https://www.linkedin.com/in/dxing01/" target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper">
+          Daniel Xing
+        </a>
         {isDev && (
           <>
             {" · Development: "}
