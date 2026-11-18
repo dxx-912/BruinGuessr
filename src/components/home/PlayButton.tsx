@@ -15,7 +15,7 @@ import { api, ApiError } from "@/lib/game/api";
  */
 const TILE =
   "group relative flex h-full w-full flex-row items-center gap-4 overflow-hidden rounded-[26px] p-5 text-left transition duration-150 " +
-  "xl:min-h-[18rem] xl:flex-col xl:items-stretch xl:gap-0 xl:p-7 hover:-translate-y-0.5 active:translate-y-[3px] " +
+  "xl:min-h-[clamp(18rem,30dvh,22rem)] xl:flex-col xl:items-stretch xl:gap-0 xl:p-7 hover:-translate-y-0.5 active:translate-y-[3px] " +
   "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-paper disabled:cursor-wait";
 
 const COPY = {

@@ -28,14 +28,18 @@ const TOP = 10;
  *   so the right tower is never cut: the window's right edge falls in the
  *   right wing, about a tower's width past it (the towers span x 583 to 1015).
  * - `--w` / `--h`: the drawing's size that puts exactly that window between
- *   the text and the right edge of the page.
- * Its bottom 15% (the walkway, fading to night) hangs below the hero, under
- * the "How it plays" cards.
+ *   the text and the right edge of the page;
+ * - `--bl`: where the text column itself starts (the centred column plus its
+ *   padding), since the scene is placed from inside it.
+ * The scene hangs from the tiles, not from the hero's edge: the foot of
+ * Royce's steps (y 598 of 720) is level with the bottom of the tiles, so the
+ * building and the text stay together however tall the window is.
  */
 const HERO_VARS =
   "[--f:0.47] xl:[--f:0.5] [--xl:430] [--xw:680] xl:[--xl:420] xl:[--xw:700] " +
   "[--te:calc((100cqw-min(100cqw,72rem))/2+min(100cqw,72rem)*var(--f))] " +
-  "[--w:calc((100cqw-var(--te))*1600/var(--xw))] [--h:calc(var(--w)*0.45)]";
+  "[--w:calc((100cqw-var(--te))*1600/var(--xw))] [--h:calc(var(--w)*0.45)] " +
+  "[--bl:calc((100cqw-min(100cqw,72rem))/2+1.5rem)]";
 
 /**
  * The drawing's sky, stop for stop down to the wings' roofline
@@ -46,8 +50,11 @@ const HERO_VARS =
 const SCENE_SKY =
   "linear-gradient(180deg,#06182b 0%,#0b2747 20%,#173f70 38.3%,#3a63a2 51.7%,#6c6ea8 61.7%,#9a7d95 72%,#4b4058 81%,#1a2a40 90%,#06182b 100%)";
 
-/** Both the drawing and its sky melt into the dusk above them over their top third, so neither has a top edge. */
-const MELT_TOP = "linear-gradient(to bottom, transparent 0, #000 34%)";
+/**
+ * Both the drawing and its sky melt into the dusk around them: over their top
+ * third, and over the last stretch of the walkway, so neither has an edge.
+ */
+const MELT_TOP = "linear-gradient(to bottom, transparent 0, #000 34%, #000 84%, transparent 100%)";
 
 /** Royce dissolves into that sky on its left, from the start of the window over about 150 units. */
 const SCENE_LEFT = "linear-gradient(to right, transparent calc(var(--xl) / 16 * 1%), #000 calc((var(--xl) + 150) / 16 * 1%))";
@@ -95,7 +102,7 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
         <HeroSky />
 
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-          <div className="pt-3 sm:pt-6 md:max-w-[calc(var(--f)*100%)] md:py-12">
+          <div className="pt-3 sm:pt-6 md:max-w-[calc(var(--f)*100%)] md:pb-16 md:pt-8">
             <h1 id="headline" className="display text-[clamp(3.6rem,15cqw,5.25rem)] md:whitespace-nowrap md:text-[clamp(4.25rem,8.8cqw,7rem)]">
               Know <span className="text-ucla-gold">UCLA?</span>
             </h1>
@@ -109,11 +116,14 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
               <CampusHero className="h-[clamp(180px,34svh,300px)] w-full object-cover object-bottom" style={TOP_MASK} />
             </div>
 
-            <div className="grid gap-4 md:mt-10 xl:grid-cols-2 xl:gap-5">
-              <Suspense fallback={<SoloTile needsUsername={false} />}>
-                <Solo />
-              </Suspense>
-              <VersusTile />
+            <div className="relative md:mt-[clamp(2.5rem,5dvh,4rem)]">
+              <RoyceScene />
+              <div className="grid gap-4 xl:grid-cols-2 xl:gap-5">
+                <Suspense fallback={<SoloTile needsUsername={false} />}>
+                  <Solo />
+                </Suspense>
+                <VersusTile />
+              </div>
             </div>
             <Suspense fallback={<p className="mt-5 h-5" />}>
               <GuestNote />
@@ -163,21 +173,34 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
 }
 
 /**
- * Everything behind the hero's text, from behind the header down to the foot
- * of the scene: a blue dusk across the full width with a glow behind the
- * headline, the scene's own sky on the right, and Royce.
+ * Behind the whole hero, from behind the header down: a blue dusk across the
+ * full width with a glow behind the headline.
  */
 function HeroSky() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-24 bottom-[calc(var(--h)*-0.15)] -z-10">
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-24 bottom-0 -z-10">
       {/* The dusk under the text: night at the top, a deep blue low down, back to night at the foot. */}
       <div className="absolute inset-0 bg-[linear-gradient(180deg,#06182b_0%,#0a2340_35%,#123663_72%,#06182b_100%)] max-md:bg-[linear-gradient(180deg,#06182b_0%,#0c2a4c_14%,#06182b_30%)]" />
       {/* The glow behind the headline: UCLA Blue, with a breath of gold where "UCLA?" sits. */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_44cqw_30cqw_at_calc(var(--te)*0.42)_34%,rgb(39_116_174/0.42),transparent_70%),radial-gradient(ellipse_22cqw_14cqw_at_calc(var(--te)*0.62)_30%,rgb(255_209_0/0.09),transparent_70%)] max-md:bg-[radial-gradient(ellipse_70cqw_42cqw_at_40%_12%,rgb(39_116_174/0.42),transparent_70%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_44cqw_30cqw_at_calc(var(--te)*0.42)_38%,rgb(39_116_174/0.42),transparent_70%),radial-gradient(ellipse_22cqw_14cqw_at_calc(var(--te)*0.62)_34%,rgb(255_209_0/0.09),transparent_70%)] max-md:bg-[radial-gradient(ellipse_70cqw_42cqw_at_40%_12%,rgb(39_116_174/0.42),transparent_70%)]" />
+    </div>
+  );
+}
 
-      {/* From 768 px: the scene's sky, lined up with the drawing, then Royce. */}
-      <div className="absolute inset-x-0 bottom-0 hidden h-[var(--h)] md:block" style={{ ...SKY_MASK, backgroundImage: SCENE_SKY }} />
-      <div className="absolute bottom-0 hidden h-[var(--h)] w-[var(--w)] left-[calc(var(--te)-var(--w)*var(--xl)/1600)] md:block">
+/**
+ * From 768 px: the scene's sky across the full width, lined up with the
+ * drawing, then Royce. Placed from the tiles' wrapper (see HERO_VARS), so the
+ * foot of Royce's steps is level with the bottom of the tiles; the walkway
+ * below it fades into the night under them.
+ */
+function RoyceScene() {
+  return (
+    <div aria-hidden className="pointer-events-none hidden md:block">
+      <div
+        className="absolute -z-10 bottom-[calc(var(--h)*-0.17)] left-[calc(var(--bl)*-1)] h-[var(--h)] w-[100cqw]"
+        style={{ ...SKY_MASK, backgroundImage: SCENE_SKY }}
+      />
+      <div className="absolute -z-10 bottom-[calc(var(--h)*-0.17)] left-[calc(var(--te)-var(--bl)-var(--w)*var(--xl)/1600)] h-[var(--h)] w-[var(--w)]">
         <CampusHero className="h-full w-full" style={SCENE_MASK} />
       </div>
     </div>
