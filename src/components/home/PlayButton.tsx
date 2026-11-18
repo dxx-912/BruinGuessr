@@ -14,8 +14,8 @@ import { api, ApiError } from "@/lib/game/api";
  * 1280 px it stands tall, with the call to action along the bottom.
  */
 const TILE =
-  "group relative flex h-full w-full flex-row items-center gap-4 overflow-hidden rounded-[24px] p-4 text-left transition duration-150 " +
-  "xl:flex-col xl:items-stretch xl:gap-0 xl:p-5 hover:-translate-y-0.5 active:translate-y-[3px] " +
+  "group relative flex h-full w-full flex-row items-center gap-4 overflow-hidden rounded-[26px] p-5 text-left transition duration-150 " +
+  "xl:min-h-[18rem] xl:flex-col xl:items-stretch xl:gap-0 xl:p-7 hover:-translate-y-0.5 active:translate-y-[3px] " +
   "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-paper disabled:cursor-wait";
 
 const COPY = {
@@ -28,21 +28,21 @@ function TileBody({ gold, title, body, cta, icon }: { gold: boolean; title: stri
   return (
     <>
       {/* The icon again, large and faint, running off the corner */}
-      <span aria-hidden className={`pointer-events-none absolute -bottom-10 -right-8 h-44 w-44 rotate-[-12deg] [&>svg]:h-full [&>svg]:w-full ${gold ? "text-night/10" : "text-paper/[0.06]"}`}>
+      <span aria-hidden className={`pointer-events-none absolute -bottom-12 -right-10 h-52 w-52 xl:h-60 xl:w-60 rotate-[-12deg] [&>svg]:h-full [&>svg]:w-full ${gold ? "text-night/10" : "text-paper/[0.06]"}`}>
         {icon}
       </span>
       {/* A sheen across the top, as on a glazed pin */}
       <span aria-hidden className={`pointer-events-none absolute inset-x-0 top-0 h-1/2 ${gold ? "bg-[linear-gradient(180deg,rgb(255_255_255/0.22),transparent)]" : "bg-[linear-gradient(180deg,rgb(255_255_255/0.12),transparent)]"}`} />
-      <span className={`relative grid h-14 w-14 shrink-0 place-items-center rounded-full shadow-[0_6px_14px_-4px_rgb(6_24_43/0.6)] ${disc}`}>
-        <span className="h-8 w-8 [&>svg]:h-full [&>svg]:w-full">{icon}</span>
+      <span className={`relative grid h-16 w-16 shrink-0 place-items-center rounded-full shadow-[0_6px_14px_-4px_rgb(6_24_43/0.6)] ${disc}`}>
+        <span className="h-9 w-9 [&>svg]:h-full [&>svg]:w-full">{icon}</span>
       </span>
-      <span className="relative min-w-0 flex-1 xl:mt-4 xl:flex-none">
-        <span className="heading block text-[2.2rem] leading-none xl:text-[2.5rem]">{title}</span>
-        <span className={`mt-1.5 block font-semibold leading-snug ${gold ? "text-night/85" : "text-paper"}`}>{body}</span>
+      <span className="relative min-w-0 flex-1 xl:mt-5 xl:flex-none">
+        <span className="heading block text-[2.4rem] leading-none xl:text-[3.1rem]">{title}</span>
+        <span className={`mt-1.5 block font-semibold leading-snug md:text-[1.05rem] xl:mt-2 xl:text-lg ${gold ? "text-night/85" : "text-paper"}`}>{body}</span>
       </span>
-      <span className="relative mt-auto hidden items-center justify-between pt-5 xl:flex">
-        <span className="font-display text-lg font-bold uppercase tracking-[0.04em]">{cta}</span>
-        <span className={`grid h-10 w-10 place-items-center rounded-full transition-transform group-hover:translate-x-1 ${disc}`}>
+      <span className="relative mt-auto hidden items-center justify-between pt-6 xl:flex">
+        <span className="font-display text-xl font-bold uppercase tracking-[0.04em]">{cta}</span>
+        <span className={`grid h-12 w-12 place-items-center rounded-full transition-transform group-hover:translate-x-1 ${disc}`}>
           <ArrowIcon className="h-5 w-5" />
         </span>
       </span>

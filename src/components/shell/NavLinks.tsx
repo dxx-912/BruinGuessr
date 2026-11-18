@@ -102,12 +102,24 @@ export function NavList({ variant, path }: { variant: "side" | "tabs"; path: str
             <Link
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`relative flex items-center gap-3 rounded-[12px] px-3.5 py-2.5 text-[1.05rem] font-semibold transition-colors ${
-                active ? "bg-ucla-blue/20 text-paper" : "text-sky hover:bg-navy-line/60 hover:text-paper"
+              className={`group relative flex items-center gap-3 rounded-[12px] border px-3.5 py-2.5 text-[1.05rem] font-semibold transition-[background-color,border-color,color] duration-150 focus-visible:outline-2 focus-visible:outline-paper ${
+                active
+                  ? "border-ucla-blue/30 bg-ucla-blue/20 text-paper"
+                  : "border-transparent text-sky hover:border-white/8 hover:bg-white/[0.06] hover:text-paper"
               }`}
             >
-              {active && <span aria-hidden className="absolute -left-3 top-2 bottom-2 w-1 rounded-r-full bg-ucla-gold" />}
-              <span className={`h-5 w-5 shrink-0 ${active ? "text-ucla-gold" : ""}`}>{item.icon}</span>
+              {/* The gold bar on the side bar's edge: lit for the current page, a faint preview on hover. */}
+              <span
+                aria-hidden
+                className={`absolute -left-3 top-2 bottom-2 w-1 rounded-r-full transition-opacity duration-150 ${
+                  active ? "bg-ucla-gold" : "bg-sky/50 opacity-0 group-hover:opacity-100"
+                }`}
+              />
+              <span
+                className={`h-5 w-5 shrink-0 transition-transform duration-150 ${active ? "text-ucla-gold" : "group-hover:translate-x-0.5"}`}
+              >
+                {item.icon}
+              </span>
               {item.label}
             </Link>
           </li>
