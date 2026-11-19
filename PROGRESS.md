@@ -18,7 +18,7 @@ Read SPEC.md first, then this file.
 - Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
 - `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All nine pass (since 2026-11-16).
-- `npm test`: 148 tests. `npm run test:live`: 104 tests against the real database (counts as of Phase 7a; the face blur change adjusts some and has not been run live yet, see below).
+- `npm test`: 148 tests. `npm run test:live`: 104 tests against the real database (counts as of the face blur change, 2026-11-18).
 
 ### Decided by Daniel (2026-11-15)
 
@@ -492,7 +492,7 @@ Method: MediaPipe Tasks (`FaceDetector`, CPU) in headless Chrome, three BlazeFac
 6. Signed out or as another player, `/admin/contributions` is the 404 page.
 7. Please note the "Camera W × H" the review page shows for your first iPhone photo, for this file.
 
-## Face blur moved to review (2026-11-18, Daniel's call; not applied to the database yet)
+## Face blur moved to review (2026-11-18, Daniel's call; migration applied, tested)
 
 Daniel changed the approach: no blur in the browser. SPEC.md ("Faces and people") is updated to match.
 
@@ -511,13 +511,16 @@ Daniel changed the approach: no blur in the browser. SPEC.md ("Faces and people"
 
 - `npm test` (148 passed; new: suggestions grown, as fractions, best first and capped at 100, and accepted unchanged by the server's check; the form's `boxes` kept, clipped, and refused when missing, malformed or over 100), type-check, lint, production build.
 - **Migration dry run** (PGlite in memory, all 10 migrations, 29 checks): one `submit_contribution` with the new signature, the public, anon and signed-in roles cannot call it or the queue, the secret key can; boxes stored as sent, `faces_detected` and the people flag follow them, none / null → empty, 100 accepted, 101 or a non-array refused (by the function and by the table), the queue carries `suggestedBlur` to admins only, approve logs only the confirmed boxes and still needs "Faces checked" for a photo flagged by boxes, reject still returns the file to delete. `supabase db push --dry-run` lists only this migration.
-- `tests/live/contributions.live.ts` is updated (the database function takes boxes; 101 boxes refused; the good HTTP upload carries one suggestion, which flags it, is stored, reaches the queue, and is **not** blurred in the waiting file; Approve needs "Faces checked", and a suggestion the reviewer drops stays unblurred in the published photo while the kept box is blurred). **Not run yet:** it needs the migration on the real database.
-- **Not tested by me:** the Contribute and review pages in a browser after this change (also needs the migration), and a real phone.
+- **Migration applied** with Daniel's approval (`supabase db push --yes`, 2026-11-18).
+- **`npm run test:live`: 104 passed** (with `npm run dev` running). Updated for this change: the database function takes boxes; 101 boxes refused; the good HTTP upload carries one suggestion, which flags it, is stored, reaches the queue, and is **not** blurred in the waiting file; Approve needs "Faces checked" before the pin check; a suggestion the reviewer drops stays unblurred in the published photo while the kept box is blurred.
+- **Contribute page in headless Chrome** (Chrome's fake camera playing pool photos as 2016 × 1512 MJPEG, phone emulation, position set inside campus at ±15 m). Pool photos were tried in turn until the page suggested at least two boxes: of the first 14, 8 had none, 3 had one, 2 had two; one timed out waiting for the face check, then passed twice in a row on retry (not reproducible). On a two-box photo: the preview outlines exactly the boxes counted ("We marked 2 possible faces…", the reviewers line, the alt text says outlined), the form sends `boxes` (2) and no face count, the photo is sent and shows as Waiting. Stored: `faces_detected` = number of boxes, flagged for people, the boxes as sent. All the suggestions found were false positives (faces on street banners, tree edges): the case this change is for.
+- **Review page in headless Chrome** (1440 × 1000): 404 before `npm run admin -- grant`, 200 after; the two suggestions pre-filled and dashed; "the detector suggested 2 boxes"; × removed one, leaving the other and offering "Back to the suggestions"; a dragged box added solid; Approve off until "Faces checked", on after; Approve sent exactly the kept suggestion plus the drawn box. After approval: the submission approved, the unblurred waiting file gone from Storage, the published photo WebP 1600 px with no metadata, audit rows approve, blur (2 boxes), faces_checked. **Pixels**, original scaled to 1600 against the published photo: the drawn box blurred (fine detail down from 6.9 to 0.8); the removed suggestion untouched (mean difference 2.8, detail 28.1 → 27.8); a control area untouched (1.5). The kept suggestion (a small box on a tree edge against the sky) only dropped from 11.7 to 6.0 by my measure, so that automatic check failed. Side by side it is clearly smeared, the foliage gone to a smooth blob. What remains is the smooth dark-to-sky ramp of the 8-sample smear: in a small, high-contrast patch it still registers as gradient. It is the same blur as Phase 7a (`applyBlur`), unchanged. The only console error was the 404 my script asked for on purpose.
+- **Clean-up:** the test accounts (`dev-player-7`, `8`), their 6 submissions, the published test photo and its file, the 5 waiting files, and every audit row the tests wrote (including the live test's) are deleted. Now: 0 contributions, 0 community photos, an empty audit log, no admins, the `contributions` bucket empty, 176 photos in rotation, and `npm run photos:report` passes all nine anti-cheat checks. The dev server and headless Chrome are stopped.
+- **Not tested by me:** a real phone.
 
 ### Waiting on Daniel
 
-1. Approve applying the migration: `supabase db push --yes` (adds a column and replaces two functions; nothing deployed calls them yet, since Phase 7a is not pushed). Then `npm run dev` and `npm run test:live`.
-2. Push when ready (this change is committed, not pushed).
+1. Push when ready (Phase 7a and this change are committed, not pushed).
 
 ## Key decisions
 
