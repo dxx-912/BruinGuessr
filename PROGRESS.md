@@ -396,6 +396,26 @@ Daniel's brief: the Play page still felt bland, with lots of empty space. Done (
 - **Checks:** `npm test` (130 passed; new: showcase picks), type-check, lint, production build. Headless Chrome against the production build at 1440 × 900, 1920 × 1080, 1440 × 1300, 1024 × 768, 768 × 1000, 390 × 844 and 375 × 548: no sideways scroll, no console errors. Contrast measured against the real pixels at all seven sizes: all pass (closest 1.12 times the requirement); the checker flags the tilted "Where is this?" tag only because the tilted text's box spills past the pill, and it passes with the tilt removed. Interactions: typing a code in the tile does not leave the page and Enter joins; the side bar box joins; a vowel shows the hint and disables Join; clicking the tile elsewhere opens Versus; the stack cycles; with reduced motion the stack and pins stay still and the strip is a row to swipe. The signed-in Solo tile was checked with its standing stubbed for one screenshot (no accounts or games were made). Live tests were not run: no game or database code changed.
 - **Not tested by me:** a real phone; the signed-in tile against a real account.
 
+## Google sign in on our own domain (2026-11-18)
+
+Daniel's brief: Google's account screen said "continue to waezvtzepdxiisefivmu.supabase.co"; it should name the site. Google names the host the sign in returns to, and with Supabase's own Google flow that is the Supabase project.
+
+- **Flow** (`src/lib/google-oauth.ts`, `src/lib/server/google.ts`, `src/app/auth/sign-in/route.ts`, `src/app/auth/google/callback/route.ts`): `POST /auth/sign-in` sends the browser straight to Google with `redirect_uri` = this site's `/auth/google/callback`, plus a random state, the SHA-256 of a random nonce and a PKCE challenge. The raw values sit in a 10-minute http-only cookie (`bg_google_flow`, sent only to the callback, cleared on first use). The callback checks the state, trades the code for an ID token with the client secret and the PKCE verifier, and signs in to Supabase with `signInWithIdToken` and the raw nonce (Supabase checks the token's signature, audience and nonce). Then the same landing as before (`/welcome` for a first sign in). `/auth/callback` (Supabase's code exchange) is gone.
+- Pressing Cancel on Google's screen goes back to `/login` without an error.
+- **New env vars:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (server only), the same Web client Supabase's Google provider is set up with.
+- **The domain shown is whatever host the visitor is on.** For it to read "bruinguessr.com", the apex must be the primary domain in Vercel, with `www` and `ucla-geoguessr.vercel.app` redirecting to it (on 2026-11-18 the apex redirected to `www`, and the vercel.app address served the site itself). Vercel preview deployments cannot sign in (their addresses are not registered with Google), as before.
+- **Checks:** `npm test` (130 passed; 7 are the sign-in flow), type-check, lint. Over HTTP on a dev server with placeholder Google keys: the sign-in POST answers 303 to Google with every parameter and sets the cookie (HttpOnly, SameSite=Lax, path limited to the callback, 10 minutes); the callback refuses a missing cookie and a wrong state, sends Cancel back to `/login` quietly, clears the cookie after use, and logs Google's refusal of a made-up code; an off-site `next` (`//evil.example`) becomes `/`.
+- **Real Google sign in:** confirmed working by Daniel on `npm run dev` (localhost) on 2026-11-18. Not yet tried on the deployed site (needs the Vercel steps below and a push).
+
+Setup (by hand):
+
+1. **Client ID and secret.** Google Cloud Console → APIs & Services → Credentials → the "Web application" OAuth client whose ID matches Supabase → Authentication → Sign In / Providers → Google. Copy the Client ID. Google shows a secret only when it is made, so if it can't be copied, "Add secret" makes a new one (the old one keeps working, so Supabase is unaffected). Put both in `.env.local` as `GOOGLE_CLIENT_ID=` and `GOOGLE_CLIENT_SECRET=`.
+2. **Redirect addresses.** Same client page → Authorized redirect URIs → add `http://localhost:3000/auth/google/callback`, `https://bruinguessr.com/auth/google/callback`, `https://www.bruinguessr.com/auth/google/callback`, `https://ucla-geoguessr.vercel.app/auth/google/callback`. Keep the Supabase one. Save.
+3. **Supabase.** Authentication → Sign In / Providers → Google: the same Client ID is listed, and "Skip nonce checks" is off.
+4. **Vercel domain.** Project → Settings → Domains: on `bruinguessr.com`, remove the redirect so it serves the site; set `www.bruinguessr.com` to redirect (308) to `bruinguessr.com`; on `ucla-geoguessr.vercel.app`, set a redirect to `bruinguessr.com`.
+5. **Vercel env vars.** Project → Settings → Environment Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (secret marked Sensitive), and `NEXT_PUBLIC_SITE_URL=https://bruinguessr.com`, all for Production. They apply from the next deploy.
+6. **Supabase URLs.** Authentication → URL Configuration: Site URL `https://bruinguessr.com`; keep `http://localhost:3000/**` and add `https://bruinguessr.com/**` to the redirect URLs.
+
 ## Key decisions
 
 - Plan review decisions (2026-11-15) are folded into SPEC.md: Wikimedia required, own photos as a third source (`original`), about 40 m eligibility buffer, Google sign in only, perfect radius of 10 m in the score formula, reports counted per account.
@@ -447,3 +467,4 @@ Daniel's brief: the Play page still felt bland, with lots of empty space. Done (
 2. ~~Turn off the Email provider.~~ Already off when Phase 2 started (checked 2026-11-15).
 3. ~~Add a Wikimedia contact to `.env.local`.~~ Done 2026-11-15.
 4. ~~Run `npm run photos:rotate`.~~ Done 2026-11-16; all anti-cheat checks pass.
+5. Google sign in on our own domain (2026-11-18): add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env.local` and Vercel, register the `/auth/google/callback` addresses in Google Cloud, and make `bruinguessr.com` the primary domain in Vercel. Steps: "Google sign in on our own domain", below "Not tested by me".

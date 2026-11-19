@@ -17,11 +17,11 @@ npm run icons:build  # redraw the favicon and app icons (only when the mark chan
 npm run art:build    # redraw the campus scene, public/art/campus-scene.svg (needs python3)
 ```
 
-`.env.local` (not committed) holds `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `MAPILLARY_TOKEN`.
+`.env.local` (not committed) holds `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `MAPILLARY_TOKEN`, `WIKIMEDIA_USER_AGENT`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The service role key, the Mapillary token and the Google client secret are server only.
 
 ## How the game works
 
-Sign in is Google only (Supabase Auth), through one page, `/login` ("Log in" and "Sign up" both lead there). On the first sign in a player picks a username (`/welcome`). Anyone can press Solo and play five rounds; signed out, that is a guest game (see "Guests" below).
+Sign in is Google only (Supabase Auth), through one page, `/login` ("Log in" and "Sign up" both lead there). The site talks to Google itself, with its own `/auth/google/callback` as the redirect, so Google's account screen says "continue to" this site's domain instead of the Supabase project's. The callback trades Google's code for an ID token and signs in to Supabase with it (`signInWithIdToken`); state, nonce and PKCE are checked along the way (`src/lib/google-oauth.ts` explains the flow). The Google client is the same one Supabase's Google provider uses, so Supabase accepts its tokens. On the first sign in a player picks a username (`/welcome`). Anyone can press Solo and play five rounds; signed out, that is a guest game (see "Guests" below).
 
 Every page except a game and a versus lobby shares one layout (`src/app/(site)/layout.tsx`): a side bar on screens 1024 px and wider, a bottom tab bar below that (Play, Leaderboard, Profile, Settings), and the account corner at top right.
 
