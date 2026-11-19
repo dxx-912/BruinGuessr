@@ -102,9 +102,13 @@ Read SPEC.md first, then this file.
 
 **Phase 6b (versus health battle): done and approved by Daniel 2026-11-17** (he moved on to 6c). Details in "Phase 6b" below. The migration is applied (shared database), so the live site already plays versus by the new rules and the leaderboard is already solo only.
 
+**Google sign in on our own domain: done and live 2026-11-18.** Google's screen names bruinguessr.com instead of the Supabase project. Details in "Google sign in on our own domain" below.
+
+**Photo contributions (SPEC.md, Phases 7a and 7b): specified 2026-11-18, not started.** 7a is next.
+
 **Phase 6c (visual pass): done and approved by Daniel 2026-11-17**, with one follow-up he asked for (the fountain, below), committed, not pushed. Details in "Phase 6c" below. No database change.
 
-The site is live at https://ucla-geoguessr.vercel.app with Google sign in working (Daniel, 2026-11-16). **The live site and `npm run dev` use the same Supabase database.** Migrations and test data land in production the moment they are applied or created.
+The site is live at https://bruinguessr.com (`www.bruinguessr.com` and `ucla-geoguessr.vercel.app` redirect there) with Google sign in working on our own domain (Daniel, 2026-11-18). **The live site and `npm run dev` use the same Supabase database.** Migrations and test data land in production the moment they are applied or created.
 
 - Versus is the solo engine with more than one row in `game_players`. The round clock, scoring, per-round photo address and leaderboard are the same functions. Migration `20261116000200_versus.sql` (applied) adds `rooms` and `room_members`, and teaches the existing functions three things: a round ends early when everyone still here has guessed; after a reveal the next round opens for everybody at once; the state lists the other players, and a scored round shows every pin. Solo behaves as before (its live tests pass unchanged).
 - Screens: `/versus` (host or join), `/versus/<CODE>` (lobby; also the link players share and the way back in after a disconnect), and the existing `/game/<id>` for play, reveal and final standings. How it works is in README.md ("Versus"); the look is in DESIGN.md ("Versus").
@@ -396,7 +400,7 @@ Daniel's brief: the Play page still felt bland, with lots of empty space. Done (
 - **Checks:** `npm test` (130 passed; new: showcase picks), type-check, lint, production build. Headless Chrome against the production build at 1440 × 900, 1920 × 1080, 1440 × 1300, 1024 × 768, 768 × 1000, 390 × 844 and 375 × 548: no sideways scroll, no console errors. Contrast measured against the real pixels at all seven sizes: all pass (closest 1.12 times the requirement); the checker flags the tilted "Where is this?" tag only because the tilted text's box spills past the pill, and it passes with the tilt removed. Interactions: typing a code in the tile does not leave the page and Enter joins; the side bar box joins; a vowel shows the hint and disables Join; clicking the tile elsewhere opens Versus; the stack cycles; with reduced motion the stack and pins stay still and the strip is a row to swipe. The signed-in Solo tile was checked with its standing stubbed for one screenshot (no accounts or games were made). Live tests were not run: no game or database code changed.
 - **Not tested by me:** a real phone; the signed-in tile against a real account.
 
-## Google sign in on our own domain (2026-11-18)
+## Google sign in on our own domain (2026-11-18, done and live)
 
 Daniel's brief: Google's account screen said "continue to waezvtzepdxiisefivmu.supabase.co"; it should name the site. Google names the host the sign in returns to, and with Supabase's own Google flow that is the Supabase project.
 
@@ -405,9 +409,9 @@ Daniel's brief: Google's account screen said "continue to waezvtzepdxiisefivmu.s
 - **New env vars:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (server only), the same Web client Supabase's Google provider is set up with.
 - **The domain shown is whatever host the visitor is on.** For it to read "bruinguessr.com", the apex must be the primary domain in Vercel, with `www` and `ucla-geoguessr.vercel.app` redirecting to it (on 2026-11-18 the apex redirected to `www`, and the vercel.app address served the site itself). Vercel preview deployments cannot sign in (their addresses are not registered with Google), as before.
 - **Checks:** `npm test` (130 passed; 7 are the sign-in flow), type-check, lint. Over HTTP on a dev server with placeholder Google keys: the sign-in POST answers 303 to Google with every parameter and sets the cookie (HttpOnly, SameSite=Lax, path limited to the callback, 10 minutes); the callback refuses a missing cookie and a wrong state, sends Cancel back to `/login` quietly, clears the cookie after use, and logs Google's refusal of a made-up code; an off-site `next` (`//evil.example`) becomes `/`.
-- **Real Google sign in:** confirmed working by Daniel on `npm run dev` (localhost) on 2026-11-18. Not yet tried on the deployed site (needs the Vercel steps below and a push).
+- **Real Google sign in:** confirmed working by Daniel on localhost, then pushed (`af489fc`) and live on 2026-11-18. On the live site, `POST /auth/sign-in` on bruinguessr.com sends the browser to Google with `redirect_uri=https://bruinguessr.com/auth/google/callback` (so the Google keys are set in Vercel), and `www` and the vercel.app address redirect to bruinguessr.com.
 
-Setup (by hand):
+Setup (by hand, done by Daniel 2026-11-18):
 
 1. **Client ID and secret.** Google Cloud Console → APIs & Services → Credentials → the "Web application" OAuth client whose ID matches Supabase → Authentication → Sign In / Providers → Google. Copy the Client ID. Google shows a secret only when it is made, so if it can't be copied, "Add secret" makes a new one (the old one keeps working, so Supabase is unaffected). Put both in `.env.local` as `GOOGLE_CLIENT_ID=` and `GOOGLE_CLIENT_SECRET=`.
 2. **Redirect addresses.** Same client page → Authorized redirect URIs → add `http://localhost:3000/auth/google/callback`, `https://bruinguessr.com/auth/google/callback`, `https://www.bruinguessr.com/auth/google/callback`, `https://ucla-geoguessr.vercel.app/auth/google/callback`. Keep the Supabase one. Save.
@@ -467,4 +471,4 @@ Setup (by hand):
 2. ~~Turn off the Email provider.~~ Already off when Phase 2 started (checked 2026-11-15).
 3. ~~Add a Wikimedia contact to `.env.local`.~~ Done 2026-11-15.
 4. ~~Run `npm run photos:rotate`.~~ Done 2026-11-16; all anti-cheat checks pass.
-5. Google sign in on our own domain (2026-11-18): add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env.local` and Vercel, register the `/auth/google/callback` addresses in Google Cloud, and make `bruinguessr.com` the primary domain in Vercel. Steps: "Google sign in on our own domain", below "Not tested by me".
+5. ~~Google sign in on our own domain: add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env.local` and Vercel, register the `/auth/google/callback` addresses in Google Cloud, and make `bruinguessr.com` the primary domain in Vercel.~~ Done 2026-11-18; sign in is live on bruinguessr.com.

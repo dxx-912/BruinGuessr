@@ -168,6 +168,81 @@ Settings page
 - Restyle the Leaderboard, Profile and Settings pages using the WatGuessr screenshots in `/reference` as the guide for layout and feel.
 - Update DESIGN.md with the new palette and illustration style.
 
+## Photo contributions
+
+Signed-in players contribute campus photos from their phone, to fill the places open imagery misses (the Hill, the northwest, the edges). Where anything in this section conflicts with an earlier section, this section wins. Build it as two phases, 7a and 7b, with the same stop and approve rhythm as before.
+
+All anti cheat rules apply to contributed photos exactly as to the rest of the pool. No contributed photo reaches a game without a person reviewing it.
+
+### Phase 7a: Capture, review queue, admin, own photos excluded
+
+Contribute page
+- A fifth navigation item, **Contribute**: in the side bar after Settings, and in the bottom tab bar on phones. It leads to `/contribute`. Signed out, it goes to the login page with a line saying contributing needs an account. Guests cannot contribute.
+- On a desktop without a rear camera, the page says to open it on a phone.
+- Flow, in order: ask for location, then open the rear camera inside the page (`getUserMedia` with `facingMode: environment`, not the phone's camera app, so the photo is provably taken at the moment and place its position was read). Capture the photo plus GPS position, accuracy and compass heading if available.
+- Camera resolution: request the highest resolution the device supports (from the camera track's capabilities where the browser reports them, otherwise a high ideal such as 4032 × 3024). The capture records the frame's actual width and height, and the review queue shows them. Report the actual output resolution on iPhone Safari in PROGRESS.md after the first real iPhone capture.
+- Before upload, the browser scales the capture to at most 2048 px on the long edge and encodes it as JPEG. Served photos are 1600 px, and Vercel refuses request bodies over 4.5 MB.
+- Location: a live accuracy readout, with the shutter disabled until the position is accurate enough and inside the boundary. A position older than about 10 seconds does not count.
+- Compass: on iPhone, a tap grants motion and orientation access. Headings are corrected from magnetic to true north (about 11.5° east at UCLA) and stored as approximate. A capture without a heading is fine.
+- After the shot: a preview with any automatic blur applied, the question "Are there people in this photo?" (yes / no), the license checkbox, then Submit. A tip on the camera screen: "Wait for people to pass. Shoot places, not people."
+- A "Your photos" list on the page shows the player's own submissions: waiting, live, or not accepted (with the reason). Only the contributor sees it.
+
+Acceptance rules (FIXED, checked again on the server)
+- GPS accuracy up to **40 m** is accepted; anything worse is rejected. A capture with accuracy worse than **25 m** is flagged for a pin check in review.
+- The position must be inside `campus.geojson`. No buffer ring for contributions.
+- File checks: JPEG or WebP only, size and dimension limits, a minimum sharpness (the pipeline's measure). The server re-encodes with sharp, which strips all metadata, and runs the existing metadata check before storing anything.
+- Rate limits, per account: **10 submissions per rolling 24 hours** and **at most 30 waiting** at once. Both are columns in `settings`, checked in the database under a lock.
+
+License (FIXED)
+- Contributors tick a checkbox licensing the photo under **CC BY-SA 4.0**, credited by their username. The time of acceptance is stored with the submission.
+- The credit follows username changes. The credits page gets a "Players" group (usernames and license only, no links to photos).
+
+Faces and people
+- Automatic blur in the browser is a best effort, not a guarantee. Face detectors that run in the browser are tuned for close faces; campus photos have small, distant faces, which they miss most. Before relying on it, measure the detector on the existing pool and on crowd shots, and report its recall.
+- In the browser, before upload: run the detector on the capture and blur what it finds, so detected faces never reach the server unblurred.
+- A photo is flagged for people when the contributor answers yes or the detector finds anything. Flagged photos come first in the queue, and cannot be approved until the reviewer ticks "Faces checked".
+- The review page has a manual blur tool (drag boxes); the server applies the boxes with sharp when the photo is approved.
+
+Storage
+- Submissions wait in a new private bucket, `contributions`, under random filenames. On approval the photo is processed exactly like the pipeline's (WebP, 1600 px, metadata stripped and checked), uploaded to `photos` under a new random filename, and added to `images` with source `community` and the contributor's account. The waiting file is then deleted. A rejected submission's file is deleted at once.
+
+Admin access (FIXED)
+- A role on the profile (`player` or `admin`). No page or API can change it; it is granted and revoked from the command line (`npm run admin -- grant <username>` / `revoke`).
+- Never read the role from the session token's user metadata, which players can edit. Every admin page and API looks the role up in the database on each request, through one helper, and answers 404 to anyone who is not an admin. Revoking takes effect at once.
+- Admin writes also pass the same-site request check. Admin pages and photos are never cached.
+- An audit log records who approved, rejected, moved or blurred what, and when.
+
+Review page (production, admin only)
+- `/admin/contributions`: the queue, flagged photos first (people, then pin checks).
+- For each submission: the photo with the blur tool; the existing pin-correction map (extracted from `/dev/photos` into a shared component, so the dev tool keeps working) with the accuracy circle and heading arrow; existing photos within 22 m facing the same way (the pipeline's near-duplicate rule); the contributor's username; the capture's actual resolution; Approve and Reject with a reason.
+- A photo flagged for a pin check cannot be approved until the reviewer confirms or moves the pin.
+- Approving publishes at once.
+
+Own photos excluded (FIXED)
+- A player never gets their own contributed photos in their games.
+- In versus, a game never uses a photo contributed by any player in it, because the contributor would know the answer.
+
+Deleted accounts
+- Deleting an account deletes its contributed photos, live and waiting: waiting files are deleted, live photos are taken out of rotation and their files deleted from Storage, and the credit and the link to the account are removed. Past rounds that used them keep their scores.
+- The delete confirmation says this, and the privacy page is updated to match.
+
+Also in 7a
+- Privacy and Terms pages: camera and location use, what a submission stores (position, accuracy, heading, time, the photo) and for how long, the CC BY-SA license.
+- DESIGN.md: the Contribute page, the review page, the fifth nav item.
+
+### Phase 7b: Wanted map, profile count, badge
+
+Wanted map (on the Contribute page)
+- A map of thin-coverage areas: a grid of cells about 75 m across over campus, built ahead of time (the grid holds no photo data). A cell is **wanted when it has fewer than 2 photos** (live and waiting both count).
+- It shows gaps only, never existing photo locations (FIXED). The server sends only the outlines of wanted cells: no counts, no photo positions.
+- Recomputed at most once a day, not on each approval, so comparing two versions of the map does not reveal where a new photo is.
+- The player's own position is shown as a dot, computed in the browser only.
+
+Profiles
+- A "Photos contributed" stat tile counting the player's live photos.
+- A "Photographer" badge once the first photo is live.
+- A one-time "Your photo is live" notice, shown only to the contributor.
+
 ## Out of scope
 
 Do not build these, but don't make them hard to add later:
