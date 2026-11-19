@@ -17,7 +17,7 @@ export default async function AccountArea() {
       </div>
     );
   }
-  return <AccountMenu username={player.username} avatarUrl={player.avatarUrl} fallbackName={player.name?.split(/\s+/)[0] ?? "Player"} />;
+  return <AccountMenu username={player.username} isAdmin={player.isAdmin} avatarUrl={player.avatarUrl} fallbackName={player.name?.split(/\s+/)[0] ?? "Player"} />;
 }
 
 /** Same size as the signed-out buttons, so nothing jumps while the session is read. */

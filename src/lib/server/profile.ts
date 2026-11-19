@@ -8,7 +8,8 @@ import { withdrawAccountPhotos } from "./contributions";
 import { adminClient } from "./supabase";
 import { usernameProblem } from "./username";
 
-export type CurrentPlayer = CurrentUser & { username: string | null };
+/** isAdmin only decides whether menus show admin links; every admin page and API checks the role again (currentAdmin). */
+export type CurrentPlayer = CurrentUser & { username: string | null; isAdmin: boolean };
 
 /** The player's username, or null if they have not picked one yet. */
 export async function usernameOf(userId: string): Promise<string | null> {
@@ -25,9 +26,9 @@ export async function usernameOf(userId: string): Promise<string | null> {
 export async function currentPlayer(): Promise<CurrentPlayer | null> {
   const user = await currentUser();
   if (!user) return null;
-  const { data, error } = await adminClient().from("profiles").select("username").eq("id", user.id).eq("is_guest", false).maybeSingle();
+  const { data, error } = await adminClient().from("profiles").select("username, role").eq("id", user.id).eq("is_guest", false).maybeSingle();
   if (error) throw new Error(`[profile] could not read the profile: ${error.message}`);
-  return data ? { ...user, username: data.username ?? null } : null;
+  return data ? { ...user, username: data.username ?? null, isAdmin: data.role === "admin" } : null;
 }
 
 /** Whether a name could be picked right now. */

@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
-type Props = { username: string | null; avatarUrl: string | null; fallbackName: string };
+type Props = { username: string | null; isAdmin: boolean; avatarUrl: string | null; fallbackName: string };
 
 /** Top right when signed in: the avatar and name, opening a small menu. */
-export default function AccountMenu({ username, avatarUrl, fallbackName }: Props) {
+export default function AccountMenu({ username, isAdmin, avatarUrl, fallbackName }: Props) {
   const path = usePathname();
   // The menu remembers the page it was opened on, so going to another page closes it.
   const [openOn, setOpenOn] = useState<string | null>(null);
@@ -63,6 +63,11 @@ export default function AccountMenu({ username, avatarUrl, fallbackName }: Props
               <Link role="menuitem" href="/settings" className={item}>
                 Settings
               </Link>
+              {isAdmin && (
+                <Link role="menuitem" href="/admin/contributions" className={item}>
+                  Review photos
+                </Link>
+              )}
             </>
           ) : (
             <Link role="menuitem" href="/welcome" className={item}>
