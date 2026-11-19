@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import JoinCodeForm from "@/components/JoinCodeForm";
 import { ROOM_CODE_LENGTH } from "@/lib/versus/types";
 import AccountArea,{ AccountAreaPlaceholder } from "@/components/shell/AccountArea";
+import AdminNavLink from "@/components/shell/AdminNavLink";
 import NavLinks, { NavList } from "@/components/shell/NavLinks";
 import SidebarStanding, { SidebarStandingPlaceholder } from "@/components/shell/SidebarStanding";
 import SiteFooter from "@/components/SiteFooter";
@@ -28,6 +29,9 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         <nav aria-label="Main">
           <Suspense fallback={<NavList variant="side" path={null} />}>
             <NavLinks variant="side" />
+          </Suspense>
+          <Suspense fallback={null}>
+            <AdminNavLink />
           </Suspense>
         </nav>
         {/* The empty middle of the bar: a room code goes straight to the room. */}
