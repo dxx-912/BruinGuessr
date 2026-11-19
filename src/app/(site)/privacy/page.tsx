@@ -20,7 +20,7 @@ export default function PrivacyPage() {
     <LegalPage
       title="Priv"
       gold="acy"
-      updated="November 17, 2026"
+      updated="November 18, 2026"
       intro={
         <p>
           BruinGuessr is a free student project, not affiliated with UCLA. It keeps as little about you as it can to run the game. There are no ads, no
@@ -57,8 +57,38 @@ export default function PrivacyPage() {
         <p>
           <strong>What is public:</strong> your username, your profile (join date, best game, games played, average score, bullseyes, versus results and
           your recent games&rsquo; distances and points), and your place on the leaderboard. Players in a versus room see your username and your pins
-          for that game.
+          for that game. If you contribute photos, your username is shown as the credit on them (see below).
         </p>
+      </LegalSection>
+
+      <LegalSection title="If you contribute photos">
+        <p>
+          The <Link href="/contribute" className={legalLink}>Contribute</Link> page uses your phone&rsquo;s camera and location, and only after you
+          press Start and your browser asks. The camera runs inside the page; nothing from it is kept or sent until you press Submit. Your location is
+          read while the page is open so it can show how accurate it is; only the reading at the moment you take the photo is sent. If your phone has a
+          compass, which way you were facing is recorded too (an iPhone asks you first).
+        </p>
+        <p>
+          Before anything is sent, your browser looks for faces in the photo and blurs any it finds. This runs on your phone; the photo is not sent
+          anywhere for it.
+        </p>
+        <p>When you submit a photo, we store, linked to your account:</p>
+        <ul>
+          <li>the photo, saved again without its embedded data (camera, date, location),</li>
+          <li>where you were (latitude and longitude), how accurate your phone said that was, and which way you faced if the compass was on,</li>
+          <li>when your location was read, when the photo was taken and when it arrived,</li>
+          <li>the size of your camera&rsquo;s picture, your answer to &ldquo;Are there people in this photo?&rdquo; and how many faces were blurred,</li>
+          <li>when you accepted the license (CC BY-SA 4.0).</li>
+        </ul>
+        <p>
+          <strong>Who sees it and for how long:</strong> a waiting photo and its details are seen only by the site&rsquo;s reviewers. If it is not
+          accepted, the photo is deleted at once; the record without the photo stays so you can see the reason, and it counts toward the limit of 10
+          photos a day. If it is accepted, a copy (at most 1,600 pixels across, no embedded data) joins the game, the waiting file is deleted, and the position
+          becomes that photo&rsquo;s answer. Like every photo in the game, its position is never shown before a guess. After a guess, players see your
+          username as the credit. The photo stays in the game until it is removed or you delete your account. Reviewers&rsquo; decisions (approved,
+          rejected, pin moved, areas blurred) are logged.
+        </p>
+        <p>Your list of photos on the Contribute page is shown only to you.</p>
       </LegalSection>
 
       <LegalSection title="If you play as a guest">
@@ -99,6 +129,9 @@ export default function PrivacyPage() {
           <li>
             <strong>OpenFreeMap</strong> serves the map. Your browser loads map pieces straight from its servers.
           </li>
+          <li>
+            The face check on the Contribute page is Google&rsquo;s MediaPipe, served from this site and run in your browser. It sends nothing to Google.
+          </li>
         </ul>
         <p>Each handles data under its own privacy policy. We share nothing with them beyond what running the site needs.</p>
       </LegalSection>
@@ -109,8 +142,9 @@ export default function PrivacyPage() {
           <Link href="/settings" className={legalLink}>
             Settings
           </Link>{" "}
-          and choose Delete account. It removes your profile, username, solo games, photo reports and leaderboard entry at once. Versus games stay for the
-          other players in them, with you removed. If you are signed in on another device, that device may show you as signed in for up to an hour, but
+          and choose Delete account. It removes your profile, username, solo games, photo reports and leaderboard entry at once. Photos you contributed
+          are deleted with it, live and waiting: they leave the game, their files are deleted and your credit is removed. Rounds already played on them
+          keep their scores. Versus games stay for the other players in them, with you removed. If you are signed in on another device, that device may show you as signed in for up to an hour, but
           it can no longer reach your account.
         </p>
       </LegalSection>

@@ -34,6 +34,7 @@ const REASONS: Record<string, string> = {
   versus: "Versus needs an account, so your friends know who they're up against.",
   profile: "Log in to see your profile.",
   settings: "Log in to change your settings.",
+  contribute: "Contributing photos needs an account, so each photo is credited to you.",
 };
 
 async function Login({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {

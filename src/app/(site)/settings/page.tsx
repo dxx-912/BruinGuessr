@@ -82,7 +82,8 @@ async function Settings() {
         <p className="mt-3 font-semibold">Delete account</p>
         <p className="text-sm text-sky">
           Deletes your account, your games and your place on the leaderboard, for good. Versus games you played stay for the other players, without you in
-          them.
+          them. Photos you contributed are deleted too, live and waiting: they leave the game and lose your credit. Rounds already played on them keep
+          their scores.
         </p>
         <DeleteAccount username={player.username} />
       </Card>

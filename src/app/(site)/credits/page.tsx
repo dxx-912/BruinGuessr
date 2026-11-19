@@ -15,6 +15,7 @@ const SOURCES: Record<PhotoSource, { title: string; note: string }> = {
   mapillary: { title: "Mapillary", note: "Street-level photos shared by Mapillary contributors, listed by their Mapillary usernames." },
   wikimedia: { title: "Wikimedia Commons", note: "Photos shared on Wikimedia Commons, listed by the name each author is credited under there." },
   original: { title: "BruinGuessr", note: "Photos taken for the game." },
+  community: { title: "Players", note: "Photos BruinGuessr players took for the game, listed by username. Each is shared under CC BY-SA 4.0." },
 };
 
 const linkClass = "underline decoration-navy-line decoration-2 underline-offset-4 hover:text-paper hover:decoration-ucla-gold";
@@ -156,6 +157,17 @@ export default function CreditsPage() {
           </h2>
           <p className="mt-3 text-sky">
             Set in Barlow and Barlow Condensed by Jeremy Tribby, under the <External href="https://openfontlicense.org">SIL Open Font License</External>.
+          </p>
+        </section>
+
+        <section className="mt-10" aria-labelledby="software">
+          <h2 id="software" className="heading text-4xl">
+            Software
+          </h2>
+          <p className="mt-3 text-sky">
+            On the Contribute page, faces are found and blurred in your browser by{" "}
+            <External href="https://ai.google.dev/edge/mediapipe/solutions/vision/face_detector">MediaPipe</External> and its BlazeFace model, under the{" "}
+            <External href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</External>.
           </p>
         </section>
     </div>

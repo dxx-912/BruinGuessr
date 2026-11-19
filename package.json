@@ -12,7 +12,7 @@
     "campus:probe": "tsx --env-file=.env.local scripts/probe-coverage.ts",
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
-    "postinstall": "node scripts/copy-maplibre-worker.mjs",
+    "postinstall": "node scripts/copy-vendor.mjs",
     "photos:mapillary": "tsx --env-file=.env.local scripts/pipeline/mapillary.ts",
     "photos:wikimedia": "tsx --env-file=.env.local scripts/pipeline/wikimedia.ts",
     "photos:import": "tsx scripts/pipeline/import-photos.ts",
@@ -23,10 +23,12 @@
     "test:live": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run --config vitest.live.config.mts",
     "photos:reports": "tsx --env-file=.env.local scripts/pipeline/reports.ts",
     "usernames": "tsx --env-file=.env.local scripts/admin/usernames.ts",
+    "admin": "tsx --env-file=.env.local scripts/admin/admin.ts",
     "photos:rotate": "tsx --env-file=.env.local scripts/pipeline/rotate-filenames.ts",
     "art:build": "python3 scripts/build-campus-scene.py public/art/campus-scene.svg && python3 scripts/build-campus-scene.py public/art/campus-hero.svg gold"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "1.2.2",
     "@supabase/realtime-js": "2.119.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",

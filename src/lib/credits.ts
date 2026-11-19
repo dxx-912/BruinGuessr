@@ -4,7 +4,7 @@
  * whose or where it was taken, because that would give answers away.
  */
 
-export type PhotoSource = "mapillary" | "wikimedia" | "original";
+export type PhotoSource = "mapillary" | "wikimedia" | "original" | "community";
 
 /** One photo's credit, as the images table holds it. */
 export type CreditRow = { source: PhotoSource; photographer: string; license: string; license_url: string | null };
@@ -13,7 +13,7 @@ export type License = { name: string; fullName: string; url: string | null };
 export type Photographer = { name: string; licenses: License[] };
 export type CreditGroup = { source: PhotoSource; photographers: Photographer[] };
 
-const SOURCE_ORDER: PhotoSource[] = ["mapillary", "wikimedia", "original"];
+const SOURCE_ORDER: PhotoSource[] = ["community", "mapillary", "wikimedia", "original"];
 
 /** "CC BY-SA 4.0" → "Creative Commons Attribution-ShareAlike 4.0". Unknown names are returned as they are. */
 export function licenseFullName(license: string): string {

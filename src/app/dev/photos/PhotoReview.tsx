@@ -1,11 +1,9 @@
 "use client";
 
-import "maplibre-gl/dist/maplibre-gl.css";
-import type { Feature, FeatureCollection } from "geojson";
-import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Feature } from "geojson";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import PinEditor, { type MapDot } from "@/components/map/PinEditor";
 import { haversineMeters } from "@/lib/geo/distance";
-import { loadMapLibre, MAP_STYLE_URL } from "@/lib/map/maplibre";
 import type { CatalogEntry, Source, Status } from "@/lib/pipeline/types";
 
 type Plan = { add: number; move: number; hide: number; restore: number };
@@ -14,17 +12,10 @@ type Filters = { source: Source | "all"; status: Status | "all"; zone: "all" | "
 
 const COLOR: Record<Status, string> = { approved: "#087f5b", pending: "#f59f00", rejected: "#D7263D" };
 const SOURCE_LABEL: Record<Source, string> = { original: "My photos", mapillary: "Mapillary", wikimedia: "Wikimedia" };
-const EMPTY: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 const imageUrl = (key: string, size: "thumb" | "full") => `/api/dev/photos/image?key=${encodeURIComponent(key)}&size=${size}`;
 const hasPin = (e: CatalogEntry): e is CatalogEntry & { lat: number; lng: number } => e.lat !== null && e.lng !== null;
 const isProblem = (e: CatalogEntry) => !hasPin(e) || e.zone === "outside";
-
-/** A point `meters` from a start along a compass heading. Good enough for drawing a short arrow. */
-function ahead(lng: number, lat: number, heading: number, meters: number): [number, number] {
-  const r = (heading * Math.PI) / 180;
-  return [lng + (meters * Math.sin(r)) / (111_320 * Math.cos((lat * Math.PI) / 180)), lat + (meters * Math.cos(r)) / 111_320];
-}
 
 async function fetchPhotos(): Promise<Payload> {
   const res = await fetch("/api/dev/photos");
@@ -138,145 +129,19 @@ export default function PhotoReview() {
   }, [step, decide]);
 
   // ---- Map ---------------------------------------------------------------------------------
-  const container = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const markerRef = useRef<Marker | null>(null);
-  const markerClass = useRef<typeof Marker | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
-  // Map event handlers are registered once, so they read the latest state through refs.
-  const live = useRef({ selected, patch });
-  useEffect(() => {
-    live.current = { selected, patch };
-  }, [selected, patch]);
-
-  const hasData = data !== null;
-  useEffect(() => {
-    if (!hasData || !container.current) return;
-    let cancelled = false;
-    let map: MapLibreMap | undefined;
-    loadMapLibre()
-      .then((maplibre) => {
-        if (cancelled || !container.current) return;
-        markerClass.current = maplibre.Marker;
-        map = new maplibre.Map({
-          container: container.current,
-          style: MAP_STYLE_URL,
-          bounds: [-118.4556, 34.0635, -118.4372, 34.0783],
-          fitBoundsOptions: { padding: 30 },
-          attributionControl: { compact: true },
-        });
-        mapRef.current = map;
-        map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
-        map.addControl(new maplibre.ScaleControl({ unit: "metric" }), "bottom-left");
-        map.on("error", (ev) => setMapError(ev.error?.message ?? "The map failed to load."));
-        map.on("load", () => {
-          if (!map) return;
-          for (const id of ["campus", "ring", "dots", "view", "ghost"]) map.addSource(id, { type: "geojson", data: EMPTY });
-          map.addLayer({ id: "campus-fill", type: "fill", source: "campus", paint: { "fill-color": "#2774AE", "fill-opacity": 0.08 } });
-          map.addLayer({ id: "campus-line", type: "line", source: "campus", paint: { "line-color": "#2774AE", "line-width": 2.5 } });
-          map.addLayer({ id: "ring-line", type: "line", source: "ring", paint: { "line-color": "#E8590C", "line-width": 1.5, "line-dasharray": [2, 2] } });
-          map.addLayer({ id: "view-line", type: "line", source: "view", paint: { "line-color": "#0b1f33", "line-width": 3 } });
-          map.addLayer({
-            id: "ghost",
-            type: "circle",
-            source: "ghost",
-            paint: { "circle-radius": 6, "circle-color": "#ffffff", "circle-stroke-color": "#0b1f33", "circle-stroke-width": 2, "circle-opacity": 0.7 },
-          });
-          map.addLayer({
-            id: "dots",
-            type: "circle",
-            source: "dots",
-            paint: {
-              "circle-radius": 5,
-              "circle-color": ["match", ["get", "status"], "approved", COLOR.approved, "rejected", COLOR.rejected, COLOR.pending],
-              "circle-stroke-color": "#ffffff",
-              "circle-stroke-width": 1.5,
-            },
-          });
-          map.on("click", "dots", (ev) => {
-            const key = ev.features?.[0]?.properties?.key;
-            if (typeof key === "string") setSelectedKey(key);
-          });
-          map.on("mouseenter", "dots", () => (map!.getCanvas().style.cursor = "pointer"));
-          map.on("mouseleave", "dots", () => (map!.getCanvas().style.cursor = ""));
-          // A photo with no location yet is placed by clicking the map.
-          map.on("click", (ev) => {
-            const { selected: sel, patch: save } = live.current;
-            if (!sel || hasPin(sel)) return;
-            if (map!.queryRenderedFeatures(ev.point, { layers: ["dots"] }).length) return;
-            void save(sel.key, { lat: ev.lngLat.lat, lng: ev.lngLat.lng });
-          });
-          setMapReady(true);
-        });
-      })
-      .catch((err: unknown) => setMapError(err instanceof Error ? err.message : "The map failed to load."));
-    return () => {
-      cancelled = true;
-      markerRef.current?.remove();
-      markerRef.current = null;
-      mapRef.current = null;
-      map?.remove();
-    };
-  }, [hasData]);
-
-  // Boundary and the dots for the current filter.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!mapReady || !map || !data) return;
-    (map.getSource("campus") as GeoJSONSource).setData(data.campus);
-    (map.getSource("ring") as GeoJSONSource).setData(data.ring);
-    (map.getSource("dots") as GeoJSONSource).setData({
-      type: "FeatureCollection",
-      features: visible.filter(hasPin).filter((e) => e.key !== selectedKey).map((e) => ({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [e.lng, e.lat] },
-        properties: { key: e.key, status: e.status },
-      })),
-    });
-  }, [mapReady, data, visible, selectedKey]);
-
-  // The draggable pin, the view-direction line and the "GPS said here" ghost for the selected photo.
-  const pinLat = selected?.lat ?? null;
-  const pinLng = selected?.lng ?? null;
-  useEffect(() => {
-    const map = mapRef.current;
-    const MarkerClass = markerClass.current;
-    if (!mapReady || !map || !MarkerClass) return;
-    markerRef.current?.remove();
-    markerRef.current = null;
-    const view = map.getSource("view") as GeoJSONSource;
-    const ghost = map.getSource("ghost") as GeoJSONSource;
-    view.setData(EMPTY);
-    ghost.setData(EMPTY);
-    const sel = live.current.selected;
-    if (!sel || pinLat === null || pinLng === null) return;
-
-    const drawView = (lng: number, lat: number) =>
-      view.setData(
-        sel.heading === null
-          ? EMPTY
-          : { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[lng, lat], ahead(lng, lat, sel.heading, 35)] } },
-      );
-    drawView(pinLng, pinLat);
-    if (sel.moved && sel.origin) {
-      ghost.setData({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [sel.origin.lng, sel.origin.lat] } });
-    }
-
-    const marker = new MarkerClass({ draggable: true, color: "#FFD100" }).setLngLat([pinLng, pinLat]).addTo(map);
-    marker.on("drag", () => {
-      const p = marker.getLngLat();
-      drawView(p.lng, p.lat);
-    });
-    marker.on("dragend", () => {
-      const p = marker.getLngLat();
-      void live.current.patch(sel.key, { lat: p.lat, lng: p.lng });
-    });
-    markerRef.current = marker;
-    if (!map.getBounds().contains([pinLng, pinLat]) || map.getZoom() < 16.5) {
-      map.easeTo({ center: [pinLng, pinLat], zoom: Math.max(map.getZoom(), 17.5), duration: 500 });
-    }
-  }, [mapReady, selectedKey, pinLat, pinLng, selected?.moved]);
+  const dots = useMemo<MapDot[]>(
+    () =>
+      visible
+        .filter(hasPin)
+        .filter((e) => e.key !== selectedKey)
+        .map((e) => ({ id: e.key, lat: e.lat, lng: e.lng, color: COLOR[e.status] })),
+    [visible, selectedKey],
+  );
+  const pin = useMemo(
+    () => (selected && hasPin(selected) ? { lat: selected.lat, lng: selected.lng } : null),
+    [selected],
+  );
+  const ghost = useMemo(() => (selected?.moved && selected.origin ? selected.origin : null), [selected]);
 
   // ---- Publish -----------------------------------------------------------------------------
   const runPublish = async () => {
@@ -387,10 +252,21 @@ export default function PhotoReview() {
       {/* ---- Right: map on top, selected photo below ---- */}
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="relative min-h-[220px] flex-1">
-          <div className="absolute inset-0">
-            <div ref={container} className="h-full w-full" />
-          </div>
-          {mapError && <p className="absolute left-3 top-3 rounded bg-red-50 px-3 py-2 text-sm text-red-800 shadow">Map problem: {mapError}</p>}
+          {data && (
+            <PinEditor
+              className="!absolute inset-0"
+              campus={data.campus}
+              ring={data.ring}
+              pin={pin}
+              heading={selected?.heading ?? null}
+              ghost={ghost}
+              dots={dots}
+              focusKey={selectedKey}
+              onDotClick={setSelectedKey}
+              onPinMove={(lat, lng) => selected && void patch(selected.key, { lat, lng })}
+              onPlace={(lat, lng) => selected && void patch(selected.key, { lat, lng })}
+            />
+          )}
           {selected && (
             <p className="absolute left-3 top-3 max-w-[70%] rounded bg-white/95 px-3 py-1.5 text-xs shadow">
               {hasPin(selected)

@@ -16,7 +16,7 @@ export default function TermsPage() {
     <LegalPage
       title="Ter"
       gold="ms"
-      updated="November 17, 2026"
+      updated="November 18, 2026"
       intro={
         <p>
           BruinGuessr is a free game made by a student. It is not affiliated with, endorsed by or run by UCLA. By playing, you agree to these terms.
@@ -63,6 +63,29 @@ export default function TermsPage() {
           </Link>{" "}
           page. If a photo is wrong, unclear or should not be in the game, use &ldquo;Report photo&rdquo; after guessing it.
         </p>
+      </LegalSection>
+
+      <LegalSection title="Photos you contribute">
+        <ul>
+          <li>Send only photos you took yourself, on campus, at that moment, with your phone&rsquo;s real location. Do not fake where a photo was taken.</li>
+          <li>
+            Shoot places, not people. Do not photograph anyone as the subject, inside private rooms, or anything that shows private information. We blur
+            faces we find, but it is up to you not to send them.
+          </li>
+          <li>
+            By ticking the box you license the photo under{" "}
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer license" className={legalLink}>
+              CC BY-SA 4.0
+            </a>
+            , credited by your BruinGuessr username. The credit follows your username if you change it. Deleting your account takes your photos out of
+            the game.
+          </li>
+          <li>
+            A reviewer checks every photo and may reject it, move its pin, blur parts of it, or remove it later. You can send up to 10 photos a day and
+            have up to 30 waiting at once.
+          </li>
+          <li>Your own photos never come up in your games, or in any versus game you play in.</li>
+        </ul>
       </LegalSection>
 
       <LegalSection title="No guarantees">

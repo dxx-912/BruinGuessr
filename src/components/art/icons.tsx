@@ -97,3 +97,23 @@ export const ArrowIcon = ({ className }: P) => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </svg>
 );
+
+export const CameraIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" aria-hidden className={className} {...stroke}>
+    <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2L9.3 4.8h5.4L16.3 7h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+    <circle cx="12" cy="13" r="3.4" />
+  </svg>
+);
+
+export const CompassIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" aria-hidden className={className} {...stroke}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="m14.8 9.2-1.6 4-4 1.6 1.6-4 4-1.6Z" />
+  </svg>
+);
+
+export const CheckIcon = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" aria-hidden className={className} {...stroke}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </svg>
+);

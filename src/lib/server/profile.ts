@@ -4,6 +4,7 @@ import type { Leaderboard } from "@/lib/leaderboard";
 import type { PlayerProfile } from "@/lib/profile";
 import type { UsernameProblem } from "@/lib/username";
 import { currentUser, type CurrentUser } from "./auth";
+import { withdrawAccountPhotos } from "./contributions";
 import { adminClient } from "./supabase";
 import { usernameProblem } from "./username";
 
@@ -103,11 +104,14 @@ export async function changeUsername(userId: string, name: string): Promise<Chan
 }
 
 /**
- * Deletes the account for good. The database removes the profile with it
- * (a trigger), and with the profile its solo games, its rows in versus games,
- * its reports and its leaderboard entry. Versus games stay for the other players.
+ * Deletes the account for good. First its contributed photos leave the game
+ * and their files are deleted (live and waiting). Then the database removes
+ * the profile with the account (a trigger), and with the profile its solo
+ * games, its rows in versus games, its reports and its leaderboard entry.
+ * Versus games stay for the other players; past rounds keep their scores.
  */
 export async function deleteAccount(userId: string): Promise<void> {
+  await withdrawAccountPhotos(userId);
   const { error } = await adminClient().auth.admin.deleteUser(userId);
   if (error) throw new Error(`[profile] could not delete the account: ${error.message}`);
 }

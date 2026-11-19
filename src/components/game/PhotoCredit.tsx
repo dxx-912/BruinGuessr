@@ -12,8 +12,9 @@ export default function PhotoCredit({ credit }: { credit: Credit }) {
   );
   return (
     <p className="min-w-0 flex-1 text-sm leading-snug text-sky">
-      Photo by <span className="font-semibold text-paper">{credit.photographer}</span>
-      {credit.source !== "original" && <> via {sourceName(credit.source)}</>} · {license}
+      {/* A player's photo is credited by username; a deleted account's photo has no name left. */}
+      Photo by <span className="font-semibold text-paper">{credit.photographer || "a former player"}</span>
+      {credit.source !== "original" && credit.source !== "community" && <> via {sourceName(credit.source)}</>} · {license}
     </p>
   );
 }

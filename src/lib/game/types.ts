@@ -7,7 +7,7 @@ export type LatLng = { lat: number; lng: number };
 
 export type PhotoCredit = {
   photographer: string;
-  source: "mapillary" | "wikimedia" | "original";
+  source: "mapillary" | "wikimedia" | "original" | "community";
   license: string;
   licenseUrl: string | null;
 };

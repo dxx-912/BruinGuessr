@@ -16,7 +16,7 @@ let loading: Promise<MapLibre> | undefined;
 
 export function loadMapLibre(): Promise<MapLibre> {
   loading ??= import("maplibre-gl").then((maplibre) => {
-    // The worker file is copied into /public by scripts/copy-maplibre-worker.mjs.
+    // The worker file is copied into /public by scripts/copy-vendor.mjs.
     // The version in the URL keeps browsers from reusing a worker from an older release.
     maplibre.setWorkerUrl(`/vendor/maplibre-gl-worker.mjs?v=${maplibre.getVersion()}`);
     return maplibre;

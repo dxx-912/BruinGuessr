@@ -54,10 +54,21 @@ const ITEMS: Item[] = [
       </svg>
     ),
   },
+  {
+    href: "/contribute",
+    label: "Contribute",
+    match: (p) => p.startsWith("/contribute"),
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden {...stroke}>
+        <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2L9.3 4.8h5.4L16.3 7h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+        <circle cx="12" cy="13" r="3.4" />
+      </svg>
+    ),
+  },
 ];
 
 /**
- * The four destinations. On a wide screen they stand in the side bar; on a
+ * The five destinations. On a wide screen they stand in the side bar; on a
  * phone (and anything narrower than a laptop) they are the bottom tab bar.
  */
 export default function NavLinks({ variant }: { variant: "side" | "tabs" }) {
@@ -85,7 +96,7 @@ const noop = () => () => {};
 export function NavList({ variant, path }: { variant: "side" | "tabs"; path: string | null }) {
   if (variant === "tabs") {
     return (
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {ITEMS.map((item) => {
           const active = path !== null && item.match(path);
           return (
@@ -93,7 +104,7 @@ export function NavList({ variant, path }: { variant: "side" | "tabs"; path: str
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-14 flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors ${
+                className={`relative flex h-14 flex-col items-center justify-center gap-1 text-[0.6875rem] font-semibold tracking-[-0.01em] transition-colors min-[360px]:text-xs min-[360px]:tracking-normal ${
                   active ? "text-paper" : "text-sky/75 hover:text-paper"
                 }`}
               >

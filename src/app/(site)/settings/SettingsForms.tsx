@@ -179,6 +179,9 @@ export function DeleteAccount({ username }: { username: string }) {
 
   return (
     <form onSubmit={submit} className="mt-4" noValidate>
+      <p className="mb-3 text-sm text-sky">
+        This can&rsquo;t be undone. Your games, your leaderboard entry and every photo you contributed (live or waiting) are deleted.
+      </p>
       <label htmlFor={inputId} className="font-semibold">
         Type <span className="rounded bg-night px-1.5 py-0.5 font-bold">{username}</span> to confirm
       </label>

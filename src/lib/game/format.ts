@@ -47,5 +47,5 @@ export function formatClock(msLeft: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-const SOURCE_NAMES = { mapillary: "Mapillary", wikimedia: "Wikimedia Commons", original: "BruinGuessr" } as const;
+const SOURCE_NAMES = { mapillary: "Mapillary", wikimedia: "Wikimedia Commons", original: "BruinGuessr", community: "BruinGuessr players" } as const;
 export const sourceName = (source: keyof typeof SOURCE_NAMES): string => SOURCE_NAMES[source];

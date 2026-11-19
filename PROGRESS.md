@@ -18,7 +18,7 @@ Read SPEC.md first, then this file.
 - Live in Supabase: **124 Mapillary (117 inside + 7 buffer) + 36 Wikimedia = 160 photos**.
 - Review tool: `npm run dev`, then http://localhost:3000/dev/photos (development only).
 - `npm run photos:report` prints the pool, coverage and live anti-cheat checks. All nine pass (since 2026-11-16).
-- `npm test`: 119 tests. `npm run test:live`: 90 tests against the real database (counts as of Phase 6c).
+- `npm test`: 146 tests. `npm run test:live`: 104 tests against the real database (counts as of Phase 7a).
 
 ### Decided by Daniel (2026-11-15)
 
@@ -104,7 +104,7 @@ Read SPEC.md first, then this file.
 
 **Google sign in on our own domain: done and live 2026-11-18.** Google's screen names bruinguessr.com instead of the Supabase project. Details in "Google sign in on our own domain" below.
 
-**Photo contributions (SPEC.md, Phases 7a and 7b): specified 2026-11-18, not started.** 7a is next.
+**Photo contributions (SPEC.md, Phases 7a and 7b): 7a built 2026-11-18, waiting for Daniel's review.** The migration is applied (shared database). Committed, not pushed. Details in "Phase 7a" below. 7b (wanted map, profile count, badge) is next.
 
 **Phase 6c (visual pass): done and approved by Daniel 2026-11-17**, with one follow-up he asked for (the fountain, below), committed, not pushed. Details in "Phase 6c" below. No database change.
 
@@ -420,11 +420,83 @@ Setup (by hand, done by Daniel 2026-11-18):
 5. **Vercel env vars.** Project → Settings → Environment Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (secret marked Sensitive), and `NEXT_PUBLIC_SITE_URL=https://bruinguessr.com`, all for Production. They apply from the next deploy.
 6. **Supabase URLs.** Authentication → URL Configuration: Site URL `https://bruinguessr.com`; keep `http://localhost:3000/**` and add `https://bruinguessr.com/**` to the redirect URLs.
 
+## Phase 7a (photo contributions: capture, review queue, admin)
+
+What was added (how it works is in README.md, "Photo contributions"; the look in DESIGN.md, "Contribute" and "Review"):
+
+- **Database:** migration `20261118000100_contributions.sql`, applied with Daniel's approval after a dry run (PGlite in memory, all migrations, 73 scripted checks; `supabase db push --dry-run` listed only this one). It adds `profiles.role` (`player` / `admin`; a guest can never be admin), `images.contributor_id` and `heading_approximate`, source `community`, the `contributions` and `admin_audit` tables (server only), the private `contributions` bucket (JPEG, 5 MB), `settings.contribution_daily_limit` (10) and `contribution_waiting_limit` (30), the submit, list, review and withdraw functions, a trigger that keeps the credit equal to the username, and `_pick_images` skipping photos contributed by anyone in the game.
+- **Contribute page** (`/contribute`, fifth nav item). Location first, then the rear camera inside the page (`getUserMedia`, `facingMode: environment`, the largest size the track reports, else 4032 × 3024 ideal). Live accuracy chip; the shutter is off unless the fix is 40 m or better, under 10 s old and inside the boundary. Compass from the orientation sensors (the back camera's direction, magnetic; the server adds 11.5° for true north and marks it approximate). Capture → scale to 2048 px → face search and blur in the browser → preview, "Are there people in this photo?", the CC BY-SA 4.0 box → Submit. "Your photos" below (Waiting / Live / Not accepted with the reason / Removed), only for the contributor. A computer without a touch screen is told to use a phone. Signed out (and guests) → the login page with "Contributing photos needs an account…".
+- **Server checks** (`src/lib/server/contributions.ts`): every rule again (`checkMeta` in `src/lib/contribute/rules.ts`), the real file type from its first bytes (JPEG or WebP), 10 KB to 4 MB, long edge 1024 to 2048, re-encoded by sharp, the metadata check, the pipeline's sharpness floor, then the limits under a per-account lock in the database. Body over 4.5 MB refused before reading.
+- **Review page** (`/admin/contributions`) and admin APIs (`/api/admin/…`): queue (people, then pin checks, then oldest), blur tool, the pin map, near duplicates (22 m, 40°), contributor and capture resolution, Approve (refused until "Faces checked" on a people flag and the pin confirmed or moved on a pin-check flag; the pin must be on campus) and Reject with a reason. Approval publishes at once: blur boxes applied with sharp, WebP 1600 px, metadata check, new random filename in `photos`, `images` row with source `community`; the waiting file is then deleted. A rejected file is deleted at once. Every action is in `admin_audit` (who, what, when; a moved pin records from, to and metres).
+- **Admin access:** one helper, `src/lib/server/admin.ts`, reads the role from the database on every request (never the token's metadata). Everyone else gets 404 (the page is `instant = false`, so it blocks on the server and the status really is 404, not a streamed 200). Admin writes also need the same-site check. Pages and photos are `no-store`. `npm run admin [-- grant|revoke <username>]` is the only way to change a role.
+- **Pin map shared:** `src/components/map/PinEditor.tsx`, extracted from `/dev/photos` (which now uses it) with an accuracy circle, arrow heads and nearby-photo dots added.
+- **Own photos excluded** in solo (the player) and versus (everyone in the game), in `_pick_images`.
+- **Deleting an account** deletes its contributed photos: waiting files deleted; live photos hidden for good (`hidden_reason = 'contributor account deleted'`), files deleted, credit and account link removed; past rounds keep their scores. The API does it before deleting the account (so it can delete the files); a database trigger does the database part for an account deleted any other way. The Settings card and confirmation say so.
+- **Credits:** a "Players" group (usernames and license only), and a Software note for MediaPipe. A player's credit on the reveal reads "Photo by <username> · CC BY-SA 4.0".
+- **Privacy and Terms** updated (camera and location use, what a submission stores and for how long, who sees it, the license, the rules for photos, deletion).
+- `scripts/copy-maplibre-worker.mjs` became `scripts/copy-vendor.mjs` (also copies MediaPipe's WebAssembly). `@mediapipe/tasks-vision` is pinned at 1.2.2 (1.2.3 was a week old). The model file is committed at `public/models/face_detection_full_range.tflite` (1.1 MB, Apache 2.0).
+
+### Face detector: measured before relying on it
+
+Method: MediaPipe Tasks (`FaceDetector`, CPU) in headless Chrome, three BlazeFace models (short range, full range, full range sparse), with and without searching the photo in overlapping windows of ½, ¼ and ⅛ of its long edge, scores from 0.3 to 0.7. A face counts as found when the blur box (the detection grown 1.4×) covers at least half of it. Face sizes are given as they would be in a 2048 px capture.
+
+- **Crowd shots:** 160 images from the WIDER FACE validation set (all its event types; 1,342 labelled faces), via a Hugging Face mirror.
+- **The existing pool:** the 176 live photos. There is no ground truth, so I looked at every candidate box from the likely settings (478 crops) and marked 68 as faces. Many Mapillary faces are already blurred by Mapillary; a few are faces on banners, murals and statues. Recall here is "of the faces any of these settings found", so it flatters the settings that found the most.
+
+| Settings | Crowd recall (all) | < 16 px | 16–32 | 32–64 | 64–128 | ≥ 128 | Crowd precision | Pool: faces found | Pool: photos given a false blur |
+|---|---|---|---|---|---|---|---|---|---|
+| Short range, one pass, 0.5 (the default way to use it) | **6%** | 0% | 0% | 0% | 0% | 33% | 92% | not scored (4 boxes in all) | at most 4 of 176 |
+| Full range, one pass, 0.5 | 24% | 0% | 0% | 1% | 29% | 76% | 98% | 1 of 68 | 4 of 176 |
+| Full range, whole + ½ + ¼ + ⅛, 0.6 | 49% | 4% | 12% | 39% | 73% | 79% | 96% | 23 of 68 | 20 of 176 |
+| **Full range, whole + ½ + ¼ + ⅛, 0.55 (shipped)** | **53%** | 6% | 15% | 46% | 76% | 85% | 91% | **26 of 68** | **42 of 176** |
+| Full range, whole + ½ + ¼ + ⅛, 0.5 | 58% | 8% | 22% | 51% | 80% | 87% | 83% | 39 of 68 | 72 of 176 |
+| Short range, whole + ½ + ¼ + ⅛, 0.5 | 61% | 5% | 11% | 58% | 87% | 97% | 50% | 19 of 68 | 136 of 176 |
+
+- **What it means:** used the obvious way (one pass), the browser detector catches almost nothing on campus photos; faces under about 64 px (anyone more than a few metres away) are invisible to it. Searching in windows fixes much of that. The shipped setting finds about half the faces in crowd shots and three quarters of faces 64 px and larger, but under half of faces 32 to 64 px and few smaller. On the pool's people-light photos it found 26 of the 68 known faces, and about one photo in four gets a small blurred patch that is not a face (brick, leaves). Lower thresholds find more faces but blur parts of most photos.
+- So the automatic blur is a first pass only. The people question, the people flag and the reviewer's "Faces checked" plus the blur tool are what really protect faces; the page says a person checks every photo.
+- Speed: about 0.7 s per 2048 px photo on a laptop CPU in the measurement, 1.5 to 1.7 s in the page under headless Chrome. A phone will be slower (unmeasured); the page shows a progress bar.
+- The threshold is `MIN_FACE_SCORE` and the windows `TILE_FRACTIONS` in `src/lib/contribute/faces.ts`. The measurement scripts and data are not in the repo (they were in the session's scratch space); rerunning it needs the WIDER mirror (`NekoJojo/modified_wider_face_val`) and the pool files in `.cache/pipeline/processed`.
+- MediaPipe writes start-up notes ("INFO: Created TensorFlow Lite XNNPACK delegate…") to `console.error`. The page silences exactly those two message shapes while the detector loads and runs, so they do not show as errors (the Next.js dev overlay counted one as an issue).
+
+### Decisions made in Phase 7a (say so if you want any changed)
+
+- **Detector:** full-range BlazeFace, windowed, 0.55 (above). It runs on the CPU in every browser; MediaPipe's GPU path differs between browsers.
+- **The automatic blur cannot be undone by the contributor** (the spec: detected faces never reach the server unblurred). A false patch can only be avoided by retaking.
+- **Compass:** listened to straight away; where the browser has a permission step (iPhone, and current Chrome too), a "Turn on compass" button shows until a reading arrives. A heading is kept only if it is under 3 s old at the shutter. With the phone lying flat there is no heading.
+- **Position age:** the shutter needs a fix under 10 s old; the server allows the shot to be up to 11 s after the fix (device clock, so only the difference counts) and the shot to be within a day of the server's clock. The page asks for a fresh fix when the last is 4 s old, because a phone standing still may stop sending positions.
+- **"Your photos"** shows a small re-encoded thumbnail of waiting and live photos (owner only, never cached); rejected ones show an icon (their file is gone). Positions are never sent to the list.
+- **Desktop:** a device without a touch screen is told to open the page on a phone (no "try anyway"). A touch device whose only camera faces the user is told the same.
+- **Ready-made reject reasons** on the review page (blurry or dark; too much like an existing photo; hard to recognise; people in the way; wrong place; indoors), plus free text. The contributor sees the reason.
+- **The credit** is the username, kept in step by a trigger; if an admin resets a username (`npm run usernames -- reset`), the credit becomes "A BruinGuessr player" until a new name is picked. A deleted account's photos lose the credit entirely ("a former player" if a reveal ever shows one).
+- **Removed** is a status in "Your photos" for an approved photo later taken out of rotation (by reports, say).
+- **No admin link in the site navigation.** Admins open `/admin/contributions` directly.
+- `sharp` re-encodes uploads as JPEG quality 90 for the waiting file; approval makes the WebP from that.
+
+### Checks run at the end of Phase 7a
+
+- `npm test` (146 passed; 16 new: the campus test for contributions, true-north headings and the 360° wrap, the camera heading from orientation sensors, capture scaling, the shutter's position rules, every server field check, the tiled search, box merging, review blur boxes, Players credits), type-check, lint, production build, `npm run photos:report` (all nine anti-cheat checks pass; pool 176).
+- `npm run test:live` (104 passed, with `npm run dev` running; 14 new in `tests/live/contributions.live.ts`): the public key can read and call none of it and cannot list the bucket; 15 submissions at the same moment → exactly 10 accepted (the lock); no username and over 40 m refused; players get "not found" from every review function; own photos never picked in solo or versus. Over HTTP: signed out, a made-up guest cookie and another site's request refused; every server rule (accuracy, off campus, stale fix, license, the people answer, a PNG named JPEG, too small, too large, blurry), none leaving anything behind; a good photo carrying EXIF GPS stored with no metadata, re-encoded, true-north heading; the list and thumbnail only for the owner; the review API and page 404 for signed out, the contributor and a not-yet admin; as admin: the queue, the photo (no-store), nearby photos, another site's write refused, pin check refused, off-campus pin refused, approve with a blur box (WebP 1600 px, no metadata, the corner smoothed, audit rows), the contributor sees it live and never gets it; revoking → 404 on the next request; reject with a reason (file deleted at once, reason shown); a username change moves the credit; deleting the account deletes its live and waiting photos and files.
+- **Fake camera and GPS in headless Chrome** (49 checks, no console errors), three times in a row on the dev server and once on the production build: Chrome's fake capture device playing a pool photo as a 2016 × 1512 MJPEG, and a WIDER crowd shot; positions set with `setGeolocation`; compass events dispatched. Signed out → login with the reason; side bar order; the tab bar at 320, 360 and 390 px (five tabs, no label cut; this found "Leaderboard" clipped at 320 px, fixed with an 11 px label below 360 px); desktop told to use a phone; 404 status for a player on the review page. On a phone: the in-page camera at the frame's full size; shutter off off-campus, at ±60 m, on at ±30 m with the pin-check note; compass chip; face check (1.5 to 1.7 s); preview with the real frame size; Submit only after the answer and the license; Waiting with its thumbnail; stored position, accuracy, flags and true-north heading; a fix going stale turns the shutter off. As admin: page no-store, contributor and actual resolution, pin check, the map's pin, the nearby photo, Approve off until the pin is confirmed, a blur box dragged, approve → in the pool with credit and heading, audit approve/blur/confirm. Crowd shot: 21 faces blurred in the browser, the count reached the server, the photo flagged and first in the queue, Approve off until Faces checked, rejected with a ready reason, the contributor sees Live and Not accepted with the reason. One earlier run timed out once, right after I edited the detector while the dev server was recompiling it; the three runs after passed.
+- **Production build:** the review page and API answer 404 with no-store; `/contribute` sends signed-out visitors to login; the model and WebAssembly are served; no secret key, Google secret, Mapillary token or database function name in the browser files; MediaPipe's code (184 KB) is only in the Contribute page's chunks, and its 14.6 MB WebAssembly downloads only when Start is pressed. The same 49-check fake camera and GPS run passed against the production build too (signed in through the dev server's test login, whose session cookie works on the production server's port), with no console errors.
+- **Unverified: link prefetches staying open on the local production build.** Run with `npm run start` on this machine, Next's prefetch requests for the nav pages (`/?_rsc=…`, `/terms?_rsc=…`, `/contribute?_rsc=…` and the rest) were still open 45 seconds after a page loaded. Loaded the same way, https://bruinguessr.com (the commit before this phase) finished all of them. I did not find out whether this phase causes it or whether it is how `next start` behaves locally (I stopped a build of the previous commit that would have told). Pages load and work either way; it only showed because the test script waited for the network to go quiet (it now waits for what is on the page). **Daniel will check on the live site after pushing:** open a page with the browser's Network tab, filter on `_rsc`, and see whether the prefetch requests finish.
+- **Test data:** every test account, submission, file and test photo the tests made was deleted; the audit rows written by test reviewers were deleted so the log starts empty. No admins exist. Accounts `dev-player-1` to `6` (from Phase 5) are still there.
+- **Not tested by me:** a real phone (iPhone Safari's camera resolution, its compass permission, a real GPS fix, the detector's speed on a phone), and real Google accounts. **After the first real iPhone capture, record its actual resolution here** (the review page shows it as "Camera W × H (actual frame)").
+
+### How to test Phase 7a
+
+1. Make yourself an admin: `npm run admin -- grant <your username>` (`npm run admin` lists admins; `-- revoke` undoes it).
+2. On your phone, on campus, open https://bruinguessr.com/contribute after pushing (or `npm run dev` and your laptop's address over HTTPS; phone browsers only open the camera on HTTPS or localhost). Sign in, press Start, allow location and camera. Watch the accuracy chip; the shutter lights when it is 40 m or better. On an iPhone, tap "Turn on compass".
+3. Take a photo. Answer the people question, tick the license, Submit. It shows as Waiting under Your photos.
+4. On a computer, open `/admin/contributions`: check the photo, the pin (drag it if it is off), the resolution. Drag a box to try the blur. Approve. On the phone, refresh: Live. Try another and Reject it with a reason.
+5. Play solo with the same account a few times: your photo never comes up. Another account can get it, credited to your username.
+6. Signed out or as another player, `/admin/contributions` is the 404 page.
+7. Please note the "Camera W × H" the review page shows for your first iPhone photo, for this file.
+
 ## Key decisions
 
 - Plan review decisions (2026-11-15) are folded into SPEC.md: Wikimedia required, own photos as a third source (`original`), about 40 m eligibility buffer, Google sign in only, perfect radius of 10 m in the score formula, reports counted per account.
 - Architecture: server-authoritative. All tables get RLS with no client policies; the browser talks to `/api` routes; game transitions are Postgres functions using the database clock. Realtime Broadcast is only a "something changed" ping in versus.
-- MapLibre GL JS v6 needs its worker file served by us: `scripts/copy-maplibre-worker.mjs` copies it to `public/vendor/` after `npm install`. Load MapLibre through `loadMapLibre()` in `src/lib/map/maplibre.ts`.
+- MapLibre GL JS v6 needs its worker file served by us: `scripts/copy-vendor.mjs` copies it to `public/vendor/` after `npm install`. Load MapLibre through `loadMapLibre()` in `src/lib/map/maplibre.ts`.
 - MapLibre sets `position: relative` on its container element, which overrides an `absolute` class and collapses the map to zero height. Always size a wrapper and give the map container `h-full w-full`.
 - `src/lib/geo/boundary.ts` (`composeBoundary`) is the single place the boundary is assembled; the build script and the review page both use it.
 - The medical area is cut along Charles E. Young Dr South and Tiverton Dr (coordinates in `scripts/build-campus.ts`); the botanical garden stays in the core.

@@ -67,6 +67,14 @@ The visual direction is written up in `DESIGN.md`.
 - **Credits** (`/credits`): photographers and licenses, read from the database when the page is opened. Names and licenses only, no links to photos.
 - **Icons.** `npm run icons:build` draws `src/app/icon.svg`, `favicon.ico`, `apple-icon.png` and `public/icons/*` from one description of the mark.
 
+### Photo contributions (Phase 7a)
+
+- **Contribute** (`/contribute`, accounts only): the phone reads its location, then opens the rear camera inside the page. The shutter works only with a fix of 40 m or better, under 10 seconds old, inside the campus boundary. The browser scales the shot to 2048 px, finds faces with MediaPipe's full-range BlazeFace model (searched whole and in overlapping windows; `src/lib/contribute/faces.ts`) and blurs them before anything is sent. Then: "Are there people in this photo?", the CC BY-SA 4.0 box, Submit. The server checks every rule again, re-encodes the photo with sharp (no metadata), and keeps it in the private `contributions` bucket. Limits: 10 a day and 30 waiting per account (`settings`).
+- **Review** (`/admin/contributions`, admins only; everyone else gets 404): the queue (people first, then pin checks), a drag-a-box blur tool, the pin map shared with `/dev/photos` (accuracy circle, heading arrow, nearby photos), Approve or Reject with a reason. Approving publishes at once (WebP, 1600 px, source `community`, credited to the username); the waiting file is deleted either way. Every decision is in `admin_audit`.
+- **Admins**: `npm run admin` lists them; `npm run admin -- grant <username>` / `revoke <username>`. Nothing else can change a role, and every admin page and API reads it from the database on each request.
+- A player never gets their own photos, and a versus game never uses a photo by anyone in it. Deleting an account deletes its photos (live and waiting).
+- The face detector's model is `public/models/face_detection_full_range.tflite` (Apache 2.0, from MediaPipe). Its WebAssembly is copied to `public/vendor/mediapipe/` by `npm install`.
+
 ### Testing without Google
 
 In development only, `http://localhost:3000/api/dev/login?as=1` signs the browser in as a test account ("Dev Player 1"; `as` can be 1 to 9). The first time, it goes to the username page like a real first sign in. It returns 404 on the deployed site. To try versus alone, sign in as a different test player in each of several private windows (or browsers) and join the same room.
@@ -78,7 +86,7 @@ The live site uses the same database, so test accounts are flagged (`profiles.is
 | Command | What it checks | Needs |
 |---|---|---|
 | `npm test` | Scoring, geometry, the photo pipeline, formatting, username rules and the profanity filter, room codes | nothing |
-| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, usernames, leaderboard ranking, versus (five players, guesses at the same moment, dropping off and rejoining, the host leaving, rematch, the health battle: damage, the first-guess countdown, knock-outs, long games, running out of photos, and versus never reaching the leaderboard), guests and their rate limits, profiles, username changes, account deletion, and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
+| `npm run test:live` | The game rules in the real database: scoring matches the reference, deadlines, the per-round photo address, reports, usernames, leaderboard ranking, versus (five players, guesses at the same moment, dropping off and rejoining, the host leaving, rematch, the health battle: damage, the first-guess countdown, knock-outs, long games, running out of photos, and versus never reaching the leaderboard), guests and their rate limits, profiles, username changes, account deletion, photo contributions (limits under a lock, every server-side check, review and admin access, approval and rejection, own photos excluded, deletion with the account), and that the public key can read and call nothing | `.env.local`; for the HTTP checks, `npm run dev` running in another terminal |
 | `npm run photos:report` | Photo pool and live anti-cheat checks | `.env.local` |
 
 The live tests create throwaway accounts and games and delete them when they finish.
