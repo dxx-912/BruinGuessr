@@ -84,6 +84,11 @@ function sniff(bytes: Buffer): "jpeg" | "webp" | null {
  * The file is re-encoded by sharp, which writes no metadata (EXIF, GPS, XMP,
  * ICC), and the result goes through the pipeline's metadata check before
  * anything is stored.
+ *
+ * The photo arrives as taken, faces and all: nothing is blurred on the phone.
+ * It waits in the private bucket, which only the secret key (the review page)
+ * reads, with the detector's boxes stored beside it as suggestions. Only the
+ * boxes the reviewer confirms are blurred, on approval.
  */
 export async function submitContribution(
   userId: string,
@@ -154,7 +159,7 @@ export async function submitContribution(
       p_height: height,
       p_sharpness: sharpness,
       p_people: meta.people,
-      p_faces: meta.faces,
+      p_suggested_blur: meta.boxes,
     });
   } catch (err) {
     log("submit_contribution failed", err);
@@ -163,7 +168,7 @@ export async function submitContribution(
   }
   if (!result.ok || !result.id) {
     await removeFiles(CONTRIBUTION_BUCKET, [path]);
-    const known: SubmitProblem[] = ["daily_limit", "waiting_limit", "account_required", "no_username"];
+    const known: SubmitProblem[] = ["daily_limit", "waiting_limit", "account_required", "no_username", "bad_request"];
     return no(known.includes(result.error as SubmitProblem) ? (result.error as SubmitProblem) : result.error === "bad_accuracy" ? "too_inaccurate" : "server_error");
   }
   return { ok: true, id: result.id };
@@ -200,7 +205,7 @@ export async function reviewQueue(adminId: string): Promise<QueueItem[] | null> 
   return refused(queue) ? null : queue;
 }
 
-/** The waiting photo as stored (JPEG, at most 2048 px), or null. */
+/** The waiting photo as stored (JPEG, at most 2048 px, not blurred), or null. Admins only. */
 export async function waitingPhoto(adminId: string, id: string): Promise<Buffer | null> {
   const path = await rpc<string | null>("contribution_file", { p_admin: adminId, p_id: id });
   return path ? download(CONTRIBUTION_BUCKET, path) : null;
@@ -249,7 +254,8 @@ async function applyBlur(upright: Buffer, boxes: Box[]): Promise<Buffer> {
 export type ReviewProblem = "not_found" | "already_decided" | "bad_pin" | "outside_campus" | "faces_unchecked" | "pin_unchecked" | "bad_reason" | "server_error";
 
 /**
- * Publishes a submission at once: the blur boxes applied, processed exactly as
+ * Publishes a submission at once: the reviewer's blur boxes applied (the
+ * detector's suggestions they kept plus any they drew), processed exactly as
  * the pipeline does (WebP, 1600 px, metadata stripped and checked), uploaded to
  * the photos bucket under a new random name and added to the pool. Then the
  * waiting file is deleted.

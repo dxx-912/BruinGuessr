@@ -16,7 +16,9 @@ const STATUS: Record<ReviewProblem, number> = {
 
 /**
  * POST /api/admin/contributions/<id>/approve
- *   { lat, lng, pinConfirmed, facesChecked, blur: [{ x, y, w, h }] }  (blur boxes as fractions of the photo)
+ *   { lat, lng, pinConfirmed, facesChecked, blur: [{ x, y, w, h }] }
+ *   (the boxes to blur, as fractions of the photo: the detector's suggestions
+ *   the reviewer kept plus any they drew; nothing else is blurred)
  * → publishes the photo at once. Admins only, from our own pages.
  */
 export async function POST(request: Request, ctx: RouteContext<"/api/admin/contributions/[id]/approve">) {

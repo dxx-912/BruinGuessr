@@ -165,7 +165,7 @@ export default function CreditsPage() {
             Software
           </h2>
           <p className="mt-3 text-sky">
-            On the Contribute page, faces are found and blurred in your browser by{" "}
+            On the Contribute page, faces are found in your browser (for the reviewer to blur) by{" "}
             <External href="https://ai.google.dev/edge/mediapipe/solutions/vision/face_detector">MediaPipe</External> and its BlazeFace model, under the{" "}
             <External href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</External>.
           </p>

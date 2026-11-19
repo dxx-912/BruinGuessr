@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cameraHeading, compassPoint } from "../src/lib/contribute/compass";
-import { area, grow, iou, mergeBoxes, normalisedBoxes, tiles, TILE_FRACTIONS } from "../src/lib/contribute/faces";
+import { area, grow, iou, MAX_BLUR_BOXES, mergeBoxes, normalisedBoxes, suggestedBoxes, tiles, TILE_FRACTIONS } from "../src/lib/contribute/faces";
 import { checkMeta, fixState, insideCampus, MAX_ACCURACY_M, scaledSize, trueHeading } from "../src/lib/contribute/rules";
 import { groupCredits } from "../src/lib/credits";
 
@@ -72,7 +72,7 @@ describe("what the server accepts with a photo", () => {
     captureWidth: 4032,
     captureHeight: 3024,
     people: false,
-    faces: 0,
+    boxes: [],
     license: true,
   };
   const problem = (over: Record<string, unknown>) => {
@@ -82,7 +82,11 @@ describe("what the server accepts with a photo", () => {
 
   it("accepts a good submission", () => {
     const r = checkMeta(good, now);
-    expect("meta" in r && r.meta).toMatchObject({ lat: ROYCE.lat, accuracy: 18.3, heading: 90, people: false });
+    expect("meta" in r && r.meta).toMatchObject({ lat: ROYCE.lat, accuracy: 18.3, heading: 90, people: false, boxes: [] });
+  });
+  it("keeps the detector's suggested boxes, clipped to the photo", () => {
+    const r = checkMeta({ ...good, boxes: [{ x: 0.95, y: 0.1, w: 0.2, h: 0.05 }] }, now);
+    expect("meta" in r && r.meta.boxes).toEqual([{ x: 0.95, y: 0.1, w: 0.05, h: 0.05 }]);
   });
   it("needs the license ticked and the people question answered", () => {
     expect(problem({ license: false })).toBe("license");
@@ -103,7 +107,10 @@ describe("what the server accepts with a photo", () => {
   it("refuses malformed fields", () => {
     expect(problem({ heading: 400 })).toBe("bad_request");
     expect(problem({ heading: "north" })).toBe("bad_request");
-    expect(problem({ faces: -1 })).toBe("bad_request");
+    expect(problem({ boxes: undefined })).toBe("bad_request");
+    expect(problem({ boxes: 3 })).toBe("bad_request");
+    expect(problem({ boxes: [{ x: 0, y: 0 }] })).toBe("bad_request");
+    expect(problem({ boxes: Array.from({ length: MAX_BLUR_BOXES + 1 }, () => ({ x: 0, y: 0, w: 0.1, h: 0.1 })) })).toBe("bad_request");
     expect(problem({ captureWidth: 0 })).toBe("bad_request");
     expect(problem({ lat: "34" })).toBe("bad_request");
     expect(checkMeta(null, now)).toEqual({ problem: "bad_request" });
@@ -150,13 +157,29 @@ describe("the tiled face search", () => {
   });
 });
 
-describe("blur boxes from the review page", () => {
+describe("blur boxes", () => {
+  it("turns the detector's finds into suggestions: grown, as fractions, best first, capped", () => {
+    const found = [
+      { x: 100, y: 100, w: 20, h: 20, score: 0.6 },
+      { x: 1000, y: 500, w: 100, h: 100, score: 0.9 },
+    ];
+    expect(suggestedBoxes(found, 2000, 1000)).toEqual([
+      { x: 0.49, y: 0.48, w: 0.07, h: 0.14 },
+      { x: 0.048, y: 0.096, w: 0.014, h: 0.028 },
+    ]);
+    const many = Array.from({ length: 150 }, (_, i) => ({ x: i * 10, y: 0, w: 8, h: 8, score: i / 150 }));
+    const capped = suggestedBoxes(many, 2048, 1536);
+    expect(capped).toHaveLength(MAX_BLUR_BOXES);
+    // What the phone sends is what the server accepts.
+    expect(normalisedBoxes(capped)).toEqual(capped);
+  });
+
   it("clips to the photo, drops slivers and refuses junk", () => {
     expect(normalisedBoxes([{ x: 0.9, y: -0.1, w: 0.3, h: 0.2 }])).toEqual([{ x: 0.9, y: 0, w: 0.1, h: 0.2 }]);
     expect(normalisedBoxes([{ x: 0.5, y: 0.5, w: 0.0001, h: 0.1 }])).toEqual([]);
     expect(normalisedBoxes([{ x: "0.1", y: 0, w: 0.1, h: 0.1 }])).toBeNull();
     expect(normalisedBoxes("boxes")).toBeNull();
-    expect(normalisedBoxes(Array.from({ length: 51 }, () => ({ x: 0, y: 0, w: 0.1, h: 0.1 })))).toBeNull();
+    expect(normalisedBoxes(Array.from({ length: MAX_BLUR_BOXES + 1 }, () => ({ x: 0, y: 0, w: 0.1, h: 0.1 })))).toBeNull();
     expect(normalisedBoxes([])).toEqual([]);
   });
 });

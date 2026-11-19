@@ -1,4 +1,5 @@
-/** What the contribution APIs send to the browser. Mirrors the SQL in the Phase 7a migration. */
+/** What the contribution APIs send to the browser. Mirrors the SQL in the Phase 7a migrations. */
+import type { Box } from "./faces";
 
 export type ContributionStatus = "waiting" | "live" | "rejected" | "removed";
 
@@ -34,6 +35,8 @@ export type QueueItem = {
   sharpness: number;
   peopleAnswer: boolean;
   facesDetected: number;
+  /** Where the detector found faces, as fractions of the photo, grown to blur size. Suggestions only. */
+  suggestedBlur: Box[];
   flagPeople: boolean;
   flagPinCheck: boolean;
 };

@@ -3,6 +3,7 @@
  * browser uses them to guide the player; the server checks every one again.
  */
 import { insidePolygons } from "@/lib/geo/inside";
+import { normalisedBoxes, type Box } from "./faces";
 import { CAMPUS_POLYGONS } from "@/lib/map/campus";
 
 /** GPS accuracy (radius, metres) up to this is accepted; worse is refused. FIXED. */
@@ -68,7 +69,8 @@ export type SubmissionMeta = {
   captureWidth: number;
   captureHeight: number;
   people: boolean;
-  faces: number;
+  /** The detector's finds, as fractions of the photo: suggestions for the reviewer, not applied. */
+  boxes: Box[];
   license: true;
 };
 
@@ -99,7 +101,8 @@ export function checkMeta(raw: unknown, now: number): { meta: SubmissionMeta } |
   if (!int(r.positionAt, 0, 1e14) || !int(r.capturedAt, 0, 1e14)) return { problem: "bad_request" };
   if (r.heading !== null && (!num(r.heading) || r.heading < 0 || r.heading > 360)) return { problem: "bad_request" };
   if (!int(r.captureWidth, 1, 20_000) || !int(r.captureHeight, 1, 20_000)) return { problem: "bad_request" };
-  if (!int(r.faces, 0, 1000)) return { problem: "bad_request" };
+  const boxes = normalisedBoxes(r.boxes);
+  if (!boxes) return { problem: "bad_request" };
 
   if (r.accuracy > MAX_ACCURACY_M) return { problem: "too_inaccurate" };
   if (!insideCampus(r.lat, r.lng)) return { problem: "outside_campus" };
@@ -119,7 +122,7 @@ export function checkMeta(raw: unknown, now: number): { meta: SubmissionMeta } |
       captureWidth: r.captureWidth,
       captureHeight: r.captureHeight,
       people: r.people,
-      faces: r.faces,
+      boxes,
       license: true,
     },
   };

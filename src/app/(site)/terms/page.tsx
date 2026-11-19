@@ -69,8 +69,8 @@ export default function TermsPage() {
         <ul>
           <li>Send only photos you took yourself, on campus, at that moment, with your phone&rsquo;s real location. Do not fake where a photo was taken.</li>
           <li>
-            Shoot places, not people. Do not photograph anyone as the subject, inside private rooms, or anything that shows private information. We blur
-            faces we find, but it is up to you not to send them.
+            Shoot places, not people. Do not photograph anyone as the subject, inside private rooms, or anything that shows private information. Our
+            reviewers blur faces they find before a photo goes live, but it is up to you not to send them.
           </li>
           <li>
             By ticking the box you license the photo under{" "}

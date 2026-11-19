@@ -17,8 +17,10 @@ export const TILE_FRACTIONS = [1, 0.5, 0.25, 0.125] as const;
 export const TILE_OVERLAP = 0.25;
 /** Detections below this score are dropped. The trade-off is in PROGRESS.md. */
 export const MIN_FACE_SCORE = 0.55;
-/** Each blur covers the detected box grown by this factor, to take in hair and the edge of the face. */
+/** Each suggested blur covers the detected box grown by this factor, to take in hair and the edge of the face. */
 export const BLUR_GROW = 1.4;
+/** Most blur boxes one photo can carry: suggested by the detector, or applied on approval. */
+export const MAX_BLUR_BOXES = 100;
 
 export type Box = { x: number; y: number; w: number; h: number };
 export type ScoredBox = Box & { score: number };
@@ -77,8 +79,24 @@ export function grow(b: Box, factor: number, width: number, height: number): Box
   return { x, y, w: Math.min(width - x, w), h: Math.min(height - y, h) };
 }
 
-/** Normalised blur boxes (0..1 of the image) from the review page, checked and clipped. Null if malformed. */
-export function normalisedBoxes(raw: unknown, max = 50): Box[] | null {
+/**
+ * The detector's finds as blur suggestions for the reviewer: each grown by
+ * BLUR_GROW, as fractions of the picture, best first, at most MAX_BLUR_BOXES.
+ * Nothing is blurred on the phone; the reviewer keeps, removes or adds boxes,
+ * and the server applies only those on approval.
+ */
+export function suggestedBoxes(found: ScoredBox[], width: number, height: number): Box[] {
+  return [...found]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_BLUR_BOXES)
+    .map((f) => {
+      const b = grow(f, BLUR_GROW, width, height);
+      return { x: round4(b.x / width), y: round4(b.y / height), w: round4(b.w / width), h: round4(b.h / height) };
+    });
+}
+
+/** Normalised blur boxes (0..1 of the image) from the phone or the review page, checked and clipped. Null if malformed. */
+export function normalisedBoxes(raw: unknown, max = MAX_BLUR_BOXES): Box[] | null {
   if (!Array.isArray(raw) || raw.length > max) return null;
   const out: Box[] = [];
   for (const r of raw) {

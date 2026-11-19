@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CameraIcon, CheckIcon, CompassIcon, PinIcon } from "@/components/art/icons";
 import { cameraHeading, compassPoint } from "@/lib/contribute/compass";
-import { blurBoxes, findFaces, loadFaceDetector } from "@/lib/contribute/detector";
+import { findFaces, loadFaceDetector } from "@/lib/contribute/detector";
+import { suggestedBoxes, type Box } from "@/lib/contribute/faces";
 import {
   CONTRIBUTION_LICENSE,
   CONTRIBUTION_LICENSE_URL,
@@ -28,7 +29,8 @@ type Shot = {
   height: number;
   captureWidth: number;
   captureHeight: number;
-  faces: number;
+  /** Where the detector found faces (fractions of the photo): suggestions for the reviewer, not blurred here. */
+  boxes: Box[];
   fix: Fix;
   capturedAt: number;
   heading: number | null;
@@ -63,7 +65,10 @@ const PROBLEMS: Record<Problem, { title: string; text: string }> = {
   camera_denied: { title: "Camera is off", text: "Allow camera access for this site in your browser's settings, then try again." },
   no_camera: { title: "No camera found", text: "Open this page on a phone with a rear camera." },
   front_camera: { title: "Only a front camera", text: "This device's camera faces you. Open this page on a phone with a rear camera." },
-  detector: { title: "Face check didn't load", text: "We blur faces before a photo leaves your phone, and that check couldn't load. Check your connection and try again." },
+  detector: {
+    title: "Face check didn't load",
+    text: "We look for faces so the reviewer can blur them, and that check couldn't load. Check your connection and try again.",
+  },
 };
 
 const SUBMIT_PROBLEMS: Record<string, string> = {
@@ -335,11 +340,12 @@ export default function ContributeClient({ username }: { username: string }) {
     ctx.drawImage(video, 0, 0, width, height);
 
     setStage({ kind: "processing", progress: 0 });
-    let faces = 0;
+    // Faces are found here but not blurred: they go with the photo as suggestions,
+    // and the reviewer decides what is blurred before it goes live.
+    let boxes: Box[] = [];
     try {
       const found = await findFaces(picture, (progress) => setStage({ kind: "processing", progress }));
-      faces = found.length;
-      blurBoxes(picture, found);
+      boxes = suggestedBoxes(found, width, height);
     } catch {
       setStage({ kind: "error", problem: "detector" });
       return;
@@ -356,7 +362,7 @@ export default function ContributeClient({ username }: { username: string }) {
     setSendError(null);
     setStage({
       kind: "preview",
-      shot: { blob, url: URL.createObjectURL(blob), width, height, captureWidth, captureHeight, faces, fix: shotFix, capturedAt: at, heading: h },
+      shot: { blob, url: URL.createObjectURL(blob), width, height, captureWidth, captureHeight, boxes, fix: shotFix, capturedAt: at, heading: h },
     });
   };
 
@@ -385,7 +391,7 @@ export default function ContributeClient({ username }: { username: string }) {
         captureWidth: shot.captureWidth,
         captureHeight: shot.captureHeight,
         people,
-        faces: shot.faces,
+        boxes: shot.boxes,
         license: true,
       }),
     );
@@ -433,7 +439,7 @@ export default function ContributeClient({ username }: { username: string }) {
             <ul className="mt-4 space-y-2 text-sky">
               <Step n={1}>We read your location, then open the camera here in the page.</Step>
               <Step n={2}>Point at something recognisable: a building, a corner, a view. Shoot places, not people.</Step>
-              <Step n={3}>Faces we find are blurred before the photo leaves your phone. A person checks every photo before it goes live.</Step>
+              <Step n={3}>We mark any faces we find. A person checks every photo and blurs faces before it goes live.</Step>
             </ul>
             {device === "desktop" ? (
               <div className="row mt-6 p-4">
@@ -536,7 +542,7 @@ export default function ContributeClient({ username }: { username: string }) {
               <div className="mt-4 h-3 overflow-hidden rounded-full bg-night ring-1 ring-navy-line">
                 <div className="h-full bg-ucla-gold transition-[width]" style={{ width: `${Math.round(stage.progress * 100)}%` }} />
               </div>
-              <p className="mt-3 text-sm text-sky">Anything that looks like a face is blurred here, before the photo is sent.</p>
+              <p className="mt-3 text-sm text-sky">Anything that looks like a face is marked for the reviewer, who blurs it before the photo goes live.</p>
             </div>
           </div>
         )}
@@ -546,13 +552,27 @@ export default function ContributeClient({ username }: { username: string }) {
             <h1 id="contribute-title" className="heading px-1 text-3xl">
               Your photo
             </h1>
-            {/* eslint-disable-next-line @next/next/no-img-element -- a local blob, nothing to optimise */}
-            <img src={stage.shot.url} alt="The photo you just took, with any faces we found blurred" className="mx-auto mt-3 max-h-[52dvh] w-auto rounded-[14px] bg-black object-contain" />
+            <div className="relative mx-auto mt-3 w-fit max-w-full overflow-hidden rounded-[14px] bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a local blob, nothing to optimise */}
+              <img
+                src={stage.shot.url}
+                alt={stage.shot.boxes.length > 0 ? "The photo you just took, with the faces we found outlined" : "The photo you just took"}
+                className="block max-h-[52dvh] w-auto max-w-full object-contain"
+              />
+              {stage.shot.boxes.map((b, i) => (
+                <span
+                  key={i}
+                  aria-hidden
+                  className="absolute rounded-[3px] border-2 border-ucla-gold"
+                  style={{ left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` }}
+                />
+              ))}
+            </div>
             <p className="mt-2 px-1 text-sm text-sky">
-              {stage.shot.faces > 0
-                ? `We blurred ${stage.shot.faces} face${stage.shot.faces === 1 ? "" : "s"} we found. `
+              {stage.shot.boxes.length > 0
+                ? `We marked ${stage.shot.boxes.length} possible face${stage.shot.boxes.length === 1 ? "" : "s"}. `
                 : "We didn't find any faces. "}
-              Automatic blur can miss faces; a person checks every photo before it goes live.
+              Until it is accepted, only you and our reviewers can see it. Reviewers blur faces, including any we missed, before it goes live.
             </p>
 
             <fieldset className="row mt-4 p-4">

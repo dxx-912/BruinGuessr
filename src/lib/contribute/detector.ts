@@ -1,14 +1,15 @@
 /**
- * Face detection and blur in the browser (Contribute page), so a face the
- * detector finds never reaches the server unblurred. A best effort, not a
- * guarantee: every contributed photo is also checked by a person.
+ * Face detection in the browser (Contribute page). Nothing is blurred here:
+ * what the detector finds is sent with the photo as suggested blur boxes, and
+ * the reviewer keeps, removes or adds to them before the server applies them
+ * on approval. A best effort, not a guarantee: a person checks every photo.
  *
  * MediaPipe's face detector runs as WebAssembly from /vendor/mediapipe (copied
  * there by scripts/copy-vendor.mjs) with the full-range BlazeFace model from
  * /models. Loaded only when the first photo is taken.
  */
 import type { FaceDetector } from "@mediapipe/tasks-vision";
-import { BLUR_GROW, FACE_MODEL_URL, FACE_WASM_DIR, MIN_FACE_SCORE, TILE_FRACTIONS, grow, mergeBoxes, tiles, type Box, type ScoredBox } from "./faces";
+import { FACE_MODEL_URL, FACE_WASM_DIR, MIN_FACE_SCORE, TILE_FRACTIONS, mergeBoxes, tiles, type ScoredBox } from "./faces";
 
 let loading: Promise<FaceDetector> | undefined;
 
@@ -85,34 +86,4 @@ export async function findFaces(picture: HTMLCanvasElement, onProgress?: (share:
   }
   onProgress?.(1);
   return mergeBoxes(found);
-}
-
-/**
- * Blurs each box in place: the patch is shrunk to a few pixels across and
- * stretched back twice, which leaves only a smooth smear of colour. Works in
- * every browser (Safari's canvas has no blur filter).
- */
-export function blurBoxes(picture: HTMLCanvasElement, boxes: Box[]): void {
-  const ctx = picture.getContext("2d");
-  if (!ctx || boxes.length === 0) return;
-  const small = document.createElement("canvas");
-  const sctx = small.getContext("2d");
-  if (!sctx) return;
-  for (const raw of boxes) {
-    const b = grow(raw, BLUR_GROW, picture.width, picture.height);
-    const x = Math.floor(b.x);
-    const y = Math.floor(b.y);
-    const w = Math.max(1, Math.ceil(b.w));
-    const h = Math.max(1, Math.ceil(b.h));
-    for (const across of [6, 10]) {
-      small.width = Math.max(2, Math.round((across * w) / Math.max(w, h)));
-      small.height = Math.max(2, Math.round((across * h) / Math.max(w, h)));
-      sctx.imageSmoothingEnabled = true;
-      sctx.imageSmoothingQuality = "high";
-      sctx.drawImage(picture, x, y, w, h, 0, 0, small.width, small.height);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(small, 0, 0, small.width, small.height, x, y, w, h);
-    }
-  }
 }

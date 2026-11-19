@@ -69,22 +69,27 @@ export default function PrivacyPage() {
           compass, which way you were facing is recorded too (an iPhone asks you first).
         </p>
         <p>
-          Before anything is sent, your browser looks for faces in the photo and blurs any it finds. This runs on your phone; the photo is not sent
-          anywhere for it.
+          Before anything is sent, your browser looks for faces in the photo and marks where it finds them. This runs on your phone; the photo is not
+          sent anywhere for it. Nothing is blurred on your phone: the photo is sent as you took it, faces included, together with the marks.
         </p>
         <p>When you submit a photo, we store, linked to your account:</p>
         <ul>
-          <li>the photo, saved again without its embedded data (camera, date, location),</li>
+          <li>the photo as you took it (not blurred), saved again without its embedded data (camera, date, location),</li>
           <li>where you were (latitude and longitude), how accurate your phone said that was, and which way you faced if the compass was on,</li>
           <li>when your location was read, when the photo was taken and when it arrived,</li>
-          <li>the size of your camera&rsquo;s picture, your answer to &ldquo;Are there people in this photo?&rdquo; and how many faces were blurred,</li>
+          <li>
+            the size of your camera&rsquo;s picture, your answer to &ldquo;Are there people in this photo?&rdquo;, and where in the photo your
+            browser found faces (boxes, not pictures of them),
+          </li>
           <li>when you accepted the license (CC BY-SA 4.0).</li>
         </ul>
         <p>
-          <strong>Who sees it and for how long:</strong> a waiting photo and its details are seen only by the site&rsquo;s reviewers. If it is not
-          accepted, the photo is deleted at once; the record without the photo stays so you can see the reason, and it counts toward the limit of 10
-          photos a day. If it is accepted, a copy (at most 1,600 pixels across, no embedded data) joins the game, the waiting file is deleted, and the position
-          becomes that photo&rsquo;s answer. Like every photo in the game, its position is never shown before a guess. After a guess, players see your
+          <strong>Who sees it and for how long:</strong> a waiting photo is kept unblurred in private storage that only the site&rsquo;s reviewers
+          (admins) can open; it and its details are seen only by them, and the photo by you in your list. A reviewer checks it for faces: the marks
+          from your browser show as suggested blur boxes, which the reviewer keeps, removes or adds to. If it is not accepted, the photo is deleted at
+          once; the record without the photo stays so you can see the reason, and it counts toward the limit of 10 photos a day. If it is accepted, the
+          server blurs the boxes the reviewer confirmed and makes a copy (at most 1,600 pixels across, no embedded data) that joins the game; the
+          unblurred waiting file is then deleted, and the position becomes that photo&rsquo;s answer. Only the blurred copy is ever shown in a game. Like every photo in the game, its position is never shown before a guess. After a guess, players see your
           username as the credit. The photo stays in the game until it is removed or you delete your account. Reviewers&rsquo; decisions (approved,
           rejected, pin moved, areas blurred) are logged.
         </p>

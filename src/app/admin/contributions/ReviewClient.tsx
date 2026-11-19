@@ -11,8 +11,13 @@ import { haversineMeters } from "@/lib/geo/distance";
 import { CAMPUS_GEOJSON } from "@/lib/map/campus";
 
 type Pin = { lat: number; lng: number };
+/** A blur box on the review page; `suggested` marks one the detector found on the contributor's phone. */
+type DraftBox = Box & { suggested?: true };
 /** Per submission, what the reviewer has done so far. Nothing is saved until Approve or Reject. */
-type Draft = { pin: Pin; pinConfirmed: boolean; facesChecked: boolean; boxes: Box[]; reason: string };
+type Draft = { pin: Pin; pinConfirmed: boolean; facesChecked: boolean; boxes: DraftBox[]; reason: string };
+
+/** The detector's boxes, pre-filled: the reviewer keeps, removes or adds to them. */
+const suggestedDraftBoxes = (item: QueueItem): DraftBox[] => (item.suggestedBlur ?? []).map((b) => ({ ...b, suggested: true }));
 
 const PROBLEM_TEXT: Record<string, string> = {
   not_found: "That submission is gone (another reviewer may have decided it).",
@@ -54,7 +59,13 @@ export default function ReviewClient({ adminName }: { adminName: string }) {
 
   const selected = useMemo(() => queue?.find((q) => q.id === selectedId) ?? queue?.[0] ?? null, [queue, selectedId]);
   const draft: Draft | null = selected
-    ? (drafts[selected.id] ?? { pin: { lat: selected.gpsLat, lng: selected.gpsLng }, pinConfirmed: false, facesChecked: false, boxes: [], reason: "" })
+    ? (drafts[selected.id] ?? {
+        pin: { lat: selected.gpsLat, lng: selected.gpsLng },
+        pinConfirmed: false,
+        facesChecked: false,
+        boxes: suggestedDraftBoxes(selected),
+        reason: "",
+      })
     : null;
   const update = (patch: Partial<Draft>) => {
     if (!selected || !draft) return;
@@ -78,6 +89,7 @@ export default function ReviewClient({ adminName }: { adminName: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinKey]);
 
+  const suggestions = selected?.suggestedBlur ?? [];
   const movedM = selected && draft ? haversineMeters({ lat: selected.gpsLat, lng: selected.gpsLng }, draft.pin) : 0;
   const pinOk = !selected?.flagPinCheck || draft?.pinConfirmed || movedM >= 0.5;
   const facesOk = !selected?.flagPeople || draft?.facesChecked;
@@ -101,7 +113,14 @@ export default function ReviewClient({ adminName }: { adminName: string }) {
       const res = await fetch(`/api/admin/contributions/${selected.id}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat: draft.pin.lat, lng: draft.pin.lng, pinConfirmed: draft.pinConfirmed, facesChecked: draft.facesChecked, blur: draft.boxes }),
+        body: JSON.stringify({
+          lat: draft.pin.lat,
+          lng: draft.pin.lng,
+          pinConfirmed: draft.pinConfirmed,
+          facesChecked: draft.facesChecked,
+          // Only these are blurred: the suggestions still on the photo plus the reviewer's own.
+          blur: draft.boxes.map(({ x, y, w, h }) => ({ x, y, w, h })),
+        }),
       });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; problem?: string };
       if (body.ok) decided(selected.id, `Approved: ${selected.contributor ?? "the player"}'s photo is live.`);
@@ -222,11 +241,25 @@ export default function ReviewClient({ adminName }: { adminName: string }) {
           <main className="min-w-0 flex-1 overflow-y-auto p-3">
             <BlurTool key={selected.id} id={selected.id} width={selected.width} height={selected.height} boxes={draft.boxes} onChange={(boxes) => update({ boxes })} />
             <p className="mt-2 text-sm text-sky">
-              Drag on the photo to blur a face, a licence plate or anything private. The server applies the boxes when you approve.{" "}
+              {suggestions.length > 0 && (
+                <>
+                  Dashed boxes are faces the detector found ({suggestions.length}); hover one to see under it, × to remove it.{" "}
+                </>
+              )}
+              Drag on the photo to blur a face, a licence plate or anything private. Only the boxes on the photo are blurred, by the server, when you
+              approve; the photo is not blurred until then.{" "}
               {draft.boxes.length > 0 && (
                 <button type="button" className="font-semibold text-ucla-gold underline" onClick={() => update({ boxes: [] })}>
                   Clear {draft.boxes.length} box{draft.boxes.length === 1 ? "" : "es"}
                 </button>
+              )}
+              {suggestions.length > 0 && !sameBoxes(draft.boxes, suggestions) && (
+                <>
+                  {" "}
+                  <button type="button" className="font-semibold text-ucla-gold underline" onClick={() => update({ boxes: suggestedDraftBoxes(selected) })}>
+                    Back to the suggestions
+                  </button>
+                </>
               )}
             </p>
 
@@ -284,8 +317,8 @@ export default function ReviewClient({ adminName }: { adminName: string }) {
                 <Detail k="Heading">{selected.heading === null ? "none" : `${compassPoint(selected.heading)} ${Math.round(selected.heading)}° (approximate, true north)`}</Detail>
                 <Detail k="Taken">{fmtTime(selected.capturedAt)}</Detail>
                 <Detail k="People">
-                  {selected.peopleAnswer ? "the contributor said yes" : "the contributor said no"} · the browser blurred {selected.facesDetected} face
-                  {selected.facesDetected === 1 ? "" : "s"}
+                  {selected.peopleAnswer ? "the contributor said yes" : "the contributor said no"} · the detector suggested {selected.facesDetected} box
+                  {selected.facesDetected === 1 ? "" : "es"}
                 </Detail>
                 {movedM >= 0.5 && <Detail k="Moved">{Math.round(movedM)} m from the GPS fix</Detail>}
               </dl>
@@ -352,6 +385,11 @@ export default function ReviewClient({ adminName }: { adminName: string }) {
   );
 }
 
+/** True when the boxes are exactly the detector's suggestions, in order. */
+function sameBoxes(a: Box[], b: Box[]): boolean {
+  return a.length === b.length && a.every((p, i) => p.x === b[i].x && p.y === b[i].y && p.w === b[i].w && p.h === b[i].h);
+}
+
 function Flag({ tone, children }: { tone: "alarm" | "hurt"; children: React.ReactNode }) {
   return <span className={`rounded-full px-1.5 text-xs font-bold text-night ${tone === "alarm" ? "bg-alarm" : "bg-hurt"}`}>{children}</span>;
 }
@@ -366,12 +404,14 @@ function Detail({ k, children }: { k: string; children: React.ReactNode }) {
 }
 
 /**
- * The photo with boxes drawn over it. Drag to add a box; click a box's × to
- * remove it. Boxes are stored as fractions of the photo, so they do not depend
- * on how large it is shown. The preview blurs them with CSS; the server
- * applies the real blur with sharp on approval.
+ * The photo (as taken, not blurred) with boxes drawn over it: the detector's
+ * suggestions dashed, the reviewer's own solid. Drag to add a box; click a
+ * box's × to remove it; hover a box to see what is under it. Boxes are stored
+ * as fractions of the photo, so they do not depend on how large it is shown.
+ * The preview blurs them with CSS; the server applies the real blur with sharp
+ * on approval, to exactly these boxes.
  */
-function BlurTool({ id, width, height, boxes, onChange }: { id: string; width: number; height: number; boxes: Box[]; onChange: (b: Box[]) => void }) {
+function BlurTool({ id, width, height, boxes, onChange }: { id: string; width: number; height: number; boxes: DraftBox[]; onChange: (b: DraftBox[]) => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
@@ -407,13 +447,14 @@ function BlurTool({ id, width, height, boxes, onChange }: { id: string; width: n
       {boxes.map((b, i) => (
         <div
           key={i}
-          className="absolute border-2 border-ucla-gold"
-          style={{ left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%`, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
+          title={b.suggested ? "Found by the detector. Hover to see under it." : "Hover to see under it."}
+          className={`absolute border-2 border-ucla-gold backdrop-blur-[10px] hover:backdrop-blur-none ${b.suggested ? "border-dashed" : ""}`}
+          style={{ left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` }}
         >
           <button
             type="button"
             data-remove="1"
-            aria-label="Remove this blur box"
+            aria-label={b.suggested ? "Remove this suggested blur box" : "Remove this blur box"}
             onClick={() => onChange(boxes.filter((_, j) => j !== i))}
             className="absolute -right-2.5 -top-2.5 grid h-5 w-5 place-items-center rounded-full bg-ucla-gold text-xs font-bold text-night"
           >

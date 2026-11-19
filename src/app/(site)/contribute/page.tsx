@@ -14,7 +14,8 @@ export const metadata = pageMetadata({
 
 /**
  * Contribute a photo: location, then the rear camera inside the page, then a
- * preview with any faces blurred, then a review queue. Accounts only: a
+ * preview with any faces found outlined (blurred by the reviewer, not here),
+ * then a review queue. Accounts only: a
  * signed-out visitor (guests included) goes to the login page with a line
  * saying why.
  */

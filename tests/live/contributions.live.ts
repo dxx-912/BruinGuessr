@@ -63,7 +63,7 @@ describe("contributions in the database", () => {
       p_height: 1536,
       p_sharpness: 300,
       p_people: false,
-      p_faces: 0,
+      p_suggested_blur: [],
       ...over,
     });
 
@@ -102,9 +102,16 @@ describe("contributions in the database", () => {
     expect((await submit(await account(null))).error).toBe("no_username");
     const user = await account("acc");
     expect((await submit(user, { p_accuracy_m: 41 })).error).toBe("bad_accuracy");
-    const flagged = await submit(user, { p_accuracy_m: 26, p_faces: 1 });
-    const row = await admin.from("contributions").select("flag_pin_check, flag_people, license, license_accepted_at").eq("id", flagged.id!).single();
-    expect(row.data).toMatchObject({ flag_pin_check: true, flag_people: true, license: "CC BY-SA 4.0" });
+    expect((await submit(user, { p_suggested_blur: Array.from({ length: 101 }, () => ({ x: 0, y: 0, w: 0.1, h: 0.1 })) })).error).toBe("bad_request");
+    expect((await submit(user, { p_suggested_blur: { x: 0 } })).error).toBe("bad_request");
+    const box = { x: 0.1, y: 0.2, w: 0.05, h: 0.06 };
+    const flagged = await submit(user, { p_accuracy_m: 26, p_suggested_blur: [box] });
+    const row = await admin
+      .from("contributions")
+      .select("flag_pin_check, flag_people, faces_detected, suggested_blur, license, license_accepted_at")
+      .eq("id", flagged.id!)
+      .single();
+    expect(row.data).toMatchObject({ flag_pin_check: true, flag_people: true, faces_detected: 1, suggested_blur: [box], license: "CC BY-SA 4.0" });
     expect(row.data?.license_accepted_at).toBeTruthy();
   });
 
@@ -158,6 +165,22 @@ async function signIn(n: number): Promise<{ cookie: string; username: string }> 
   const user = data.users.find((u) => u.email === `dev-player-${n}@bruinguessr.test`)!;
   const p = await admin.from("profiles").select("username").eq("id", user.id).single();
   return { cookie, username: username ?? p.data!.username };
+}
+
+/** A suggested blur box from the "phone", in the middle of the photo. */
+const SUGGESTED = { x: 0.4, y: 0.4, w: 0.2, h: 0.2 };
+
+/** Mean difference (0..255, greyscale) between two same-size photos inside a box given as fractions. */
+async function meanDiff(a: Buffer, b: Buffer, box: { x: number; y: number; w: number; h: number }): Promise<number> {
+  const crop = async (img: Buffer) => {
+    const { width = 0, height = 0 } = await sharp(img).metadata();
+    const region = { left: Math.round(box.x * width), top: Math.round(box.y * height), width: Math.round(box.w * width), height: Math.round(box.h * height) };
+    return sharp(img).extract(region).resize(200, 150, { fit: "fill" }).greyscale().raw().toBuffer();
+  };
+  const [p, q] = await Promise.all([crop(a), crop(b)]);
+  let sum = 0;
+  for (let i = 0; i < p.length; i++) sum += Math.abs(p[i] - q[i]);
+  return sum / p.length;
 }
 
 const userId = async (n: number) => {
@@ -222,7 +245,7 @@ describe.skipIf(!serverUp)("contributions over HTTP", () => {
     captureWidth: 4032,
     captureHeight: 3024,
     people: false,
-    faces: 0,
+    boxes: [],
     license: true,
     ...over,
   });
@@ -268,13 +291,14 @@ describe.skipIf(!serverUp)("contributions over HTTP", () => {
     expect(count.count).toBe(0);
   });
 
-  it("stores a good photo re-encoded, with no metadata, waiting for review", async () => {
+  it("stores a good photo re-encoded, with no metadata, not blurred, waiting for review", async () => {
     expect(await exifr.gps(photo)).toBeTruthy(); // the upload really carried a position
-    const res = await send(contributor.cookie, photo, meta());
+    const res = await send(contributor.cookie, photo, meta({ boxes: [SUGGESTED] }));
     expect(res.status).toBe(200);
     submitted = ((await res.json()) as { id: string }).id;
     const row = await admin.from("contributions").select("*").eq("id", submitted).single();
-    expect(row.data).toMatchObject({ status: "waiting", accuracy_m: 30, capture_width: 4032, flag_pin_check: true, flag_people: false });
+    // The detector's box is stored as a suggestion, and flags the photo for people.
+    expect(row.data).toMatchObject({ status: "waiting", accuracy_m: 30, capture_width: 4032, flag_pin_check: true, flag_people: true, faces_detected: 1, suggested_blur: [SUGGESTED] });
     // The magnetic heading sent comes back as true north.
     if (trueHeading === null) expect(row.data.heading).toBeNull();
     else expect(row.data.heading).toBeCloseTo(trueHeading, 0);
@@ -285,6 +309,8 @@ describe.skipIf(!serverUp)("contributions over HTTP", () => {
     const m = await sharp(bytes).metadata();
     expect(m.exif ?? m.xmp ?? m.iptc ?? m.icc).toBeUndefined();
     expect(m.width).toBe(2048);
+    // Kept as sent: nothing is blurred before review, not even the suggested box.
+    expect(await meanDiff(bytes, photo, SUGGESTED)).toBeLessThan(6);
   });
 
   it("lists the photo only for its contributor", async () => {
@@ -315,8 +341,10 @@ describe.skipIf(!serverUp)("contributions over HTTP", () => {
     const page = await get(reviewer.cookie, "/admin/contributions");
     expect(page.status).toBe(200);
     expect(page.headers.get("cache-control")).toMatch(/no-store/);
-    const queue = (await (await get(reviewer.cookie, "/api/admin/contributions")).json()) as { queue: { id: string; contributor: string; captureWidth: number; flagPinCheck: boolean }[] };
-    expect(queue.queue.find((q) => q.id === submitted)).toMatchObject({ contributor: contributor.username, captureWidth: 4032, flagPinCheck: true });
+    const queue = (await (await get(reviewer.cookie, "/api/admin/contributions")).json()) as {
+      queue: { id: string; contributor: string; captureWidth: number; flagPinCheck: boolean; suggestedBlur: unknown }[];
+    };
+    expect(queue.queue.find((q) => q.id === submitted)).toMatchObject({ contributor: contributor.username, captureWidth: 4032, flagPinCheck: true, suggestedBlur: [SUGGESTED] });
     const original = await get(reviewer.cookie, `/api/admin/contributions/${submitted}/photo`);
     expect(original.status).toBe(200);
     expect(original.headers.get("cache-control")).toContain("no-store");
@@ -327,7 +355,10 @@ describe.skipIf(!serverUp)("contributions over HTTP", () => {
     // Writes from another site are refused even for an admin.
     expect((await post(reviewer.cookie, `/api/admin/contributions/${submitted}/approve`, { ...spot, pinConfirmed: true }, "https://evil.example")).status).toBe(400);
     // A rough fix needs the pin confirmed (or moved); the pin must be on campus.
-    const unchecked = await post(reviewer.cookie, `/api/admin/contributions/${submitted}/approve`, { ...spot, pinConfirmed: false, facesChecked: false, blur: [] });
+    // Flagged for people (the detector's box): "Faces checked" first, then the pin.
+    const faces = await post(reviewer.cookie, `/api/admin/contributions/${submitted}/approve`, { ...spot, pinConfirmed: true, facesChecked: false, blur: [] });
+    expect([faces.status, ((await faces.json()) as { problem: string }).problem]).toEqual([409, "faces_unchecked"]);
+    const unchecked = await post(reviewer.cookie, `/api/admin/contributions/${submitted}/approve`, { ...spot, pinConfirmed: false, facesChecked: true, blur: [] });
     expect([unchecked.status, ((await unchecked.json()) as { problem: string }).problem]).toEqual([409, "pin_unchecked"]);
     const off = await post(reviewer.cookie, `/api/admin/contributions/${submitted}/approve`, { lat: 34.0604, lng: -118.4466, pinConfirmed: true, blur: [] });
     expect(off.status).toBe(400);
@@ -357,6 +388,8 @@ describe.skipIf(!serverUp)("contributions over HTTP", () => {
     const corner = await sharp(webp).extract({ left: 40, top: 30, width: 60, height: 50 }).greyscale().raw().toBuffer();
     const spread = Math.max(...corner) - Math.min(...corner);
     expect(spread).toBeLessThan(90);
+    // The suggestion the reviewer removed (it was not sent with Approve) is not blurred.
+    expect(await meanDiff(webp, await sharp(photo).resize(1600).toBuffer(), SUGGESTED)).toBeLessThan(8);
 
     const row = await admin.from("contributions").select("status, storage_path, reviewed_by").eq("id", submitted).single();
     expect(row.data).toMatchObject({ status: "approved", storage_path: null, reviewed_by: id });

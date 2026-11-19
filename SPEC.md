@@ -184,7 +184,7 @@ Contribute page
 - Before upload, the browser scales the capture to at most 2048 px on the long edge and encodes it as JPEG. Served photos are 1600 px, and Vercel refuses request bodies over 4.5 MB.
 - Location: a live accuracy readout, with the shutter disabled until the position is accurate enough and inside the boundary. A position older than about 10 seconds does not count.
 - Compass: on iPhone, a tap grants motion and orientation access. Headings are corrected from magnetic to true north (about 11.5° east at UCLA) and stored as approximate. A capture without a heading is fine.
-- After the shot: a preview with any automatic blur applied, the question "Are there people in this photo?" (yes / no), the license checkbox, then Submit. A tip on the camera screen: "Wait for people to pass. Shoot places, not people."
+- After the shot: a preview with any faces the detector found outlined (not blurred), the question "Are there people in this photo?" (yes / no), the license checkbox, then Submit. A tip on the camera screen: "Wait for people to pass. Shoot places, not people."
 - A "Your photos" list on the page shows the player's own submissions: waiting, live, or not accepted (with the reason). Only the contributor sees it.
 
 Acceptance rules (FIXED, checked again on the server)
@@ -199,9 +199,9 @@ License (FIXED)
 
 Faces and people
 - Automatic blur in the browser is a best effort, not a guarantee. Face detectors that run in the browser are tuned for close faces; campus photos have small, distant faces, which they miss most. Before relying on it, measure the detector on the existing pool and on crowd shots, and report its recall.
-- In the browser, before upload: run the detector on the capture and blur what it finds, so detected faces never reach the server unblurred.
+- Nothing is blurred in the browser (changed 2026-11-18). The browser runs the detector on the capture and sends its finds with the photo as suggested blur boxes. The original, unblurred, waits in the private `contributions` bucket, which only admins can see; it is deleted at once on rejection, and on approval once the published copy is made.
 - A photo is flagged for people when the contributor answers yes or the detector finds anything. Flagged photos come first in the queue, and cannot be approved until the reviewer ticks "Faces checked".
-- The review page has a manual blur tool (drag boxes); the server applies the boxes with sharp when the photo is approved.
+- The review page shows the suggestions as pre-filled blur boxes the reviewer can keep, remove or add to (drag boxes). On approval the server applies only the confirmed boxes, with sharp; only the blurred copy is published.
 
 Storage
 - Submissions wait in a new private bucket, `contributions`, under random filenames. On approval the photo is processed exactly like the pipeline's (WebP, 1600 px, metadata stripped and checked), uploaded to `photos` under a new random filename, and added to `images` with source `community` and the contributor's account. The waiting file is then deleted. A rejected submission's file is deleted at once.
