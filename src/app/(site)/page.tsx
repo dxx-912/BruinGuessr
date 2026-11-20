@@ -314,7 +314,7 @@ async function GuestNote() {
       <Link href="/login?mode=signup" className="text-paper underline decoration-sky/60 decoration-2 underline-offset-4 hover:decoration-ucla-gold">
         Sign up
       </Link>{" "}
-      to save your scores and play versus.
+      to play. It takes a few seconds.
     </p>
   );
 }

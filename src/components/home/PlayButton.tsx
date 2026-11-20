@@ -70,13 +70,13 @@ function TileDecor({ gold, icon }: { gold: boolean; icon: React.ReactNode }) {
   );
 }
 
-/** What the Solo tile knows about the player: their best game and rank, or that they would play as a guest. */
+/** What the Solo tile knows about the player: their best game and rank, or that they are signed out. */
 export type SoloStanding = { kind: "guest" } | { kind: "none" } | { kind: "best"; score: number; rank: number; total: number };
 
 function SoloMeta({ standing }: { standing: SoloStanding }) {
   if (standing.kind === "none") return null;
   if (standing.kind === "guest")
-    return <span className="font-display text-xl font-bold uppercase tracking-[0.04em] max-xl:text-base">Play as a guest</span>;
+    return <span className="font-display text-xl font-bold uppercase tracking-[0.04em] max-xl:text-base">Sign up to play</span>;
   return (
     <span className="flex items-end gap-3 max-xl:items-center">
       <span className="max-xl:flex max-xl:items-baseline max-xl:gap-2">
@@ -92,9 +92,9 @@ function SoloMeta({ standing }: { standing: SoloStanding }) {
 }
 
 /**
- * Starting a solo game: on the player's account when signed in, as a guest when not.
+ * Starting a solo game: on the player's account. A signed-out visitor goes to sign up first.
  */
-function useSoloStart(needsUsername: boolean) {
+function useSoloStart(needsUsername: boolean, signedOut: boolean) {
   const router = useRouter();
   const [starting, setStarting] = useState(false);
   const [problem, setProblem] = useState<React.ReactNode>(null);
@@ -105,6 +105,7 @@ function useSoloStart(needsUsername: boolean) {
 
   const start = async () => {
     if (needsUsername) return router.push("/welcome");
+    if (signedOut) return router.push("/login?mode=signup");
     setStarting(true);
     setProblem(null);
     try {
@@ -114,16 +115,7 @@ function useSoloStart(needsUsername: boolean) {
       setStarting(false);
       const code = err instanceof ApiError ? err.code : "server_error";
       if (code === "no_username") router.push("/welcome");
-      else if (code === "rate_limited")
-        setProblem(
-          <>
-            That&rsquo;s a lot of guest games from here.{" "}
-            <Link href="/login?mode=signup" className="underline">
-              Sign up
-            </Link>{" "}
-            to keep playing, or try again in a little while.
-          </>,
-        );
+      else if (code === "unauthorized") router.push("/login?mode=signup");
       else setProblem(code === "network" ? "No connection. Check your internet and try again." : "The game could not start. Try again in a moment.");
     }
   };
@@ -133,7 +125,7 @@ function useSoloStart(needsUsername: boolean) {
 
 /** The Solo tile. Starts a solo game and goes to it. */
 export function SoloTile({ needsUsername, standing }: { needsUsername: boolean; standing: SoloStanding }) {
-  const { start, starting, problem } = useSoloStart(needsUsername);
+  const { start, starting, problem } = useSoloStart(needsUsername, standing.kind === "guest");
   return (
     <div className="h-full">
       <button
@@ -147,7 +139,7 @@ export function SoloTile({ needsUsername, standing }: { needsUsername: boolean; 
           gold
           title={starting ? "Starting…" : COPY.solo.title}
           body={COPY.solo.body}
-          cta={standing.kind === "guest" ? "Play as a guest" : COPY.solo.cta}
+          cta={standing.kind === "guest" ? "Sign up to play" : COPY.solo.cta}
           icon={<TargetIcon />}
           meta={<SoloMeta standing={standing} />}
         />
