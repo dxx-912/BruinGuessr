@@ -23,7 +23,7 @@ export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboar
         <h1 className="display text-[clamp(3rem,10vw,5rem)]">
           Leader<span className="text-ucla-gold">board</span>
         </h1>
-        <p className="mx-auto mt-2 max-w-xl text-sky">Each player&rsquo;s best solo game out of 25,000. Equal scores go to whoever got there first. Versus games are played for the win, not for the board.</p>
+        <p className="mx-auto mt-2 max-w-xl text-sky">Every player&rsquo;s best solo game out of 25,000 points. Versus games don&rsquo;t count.</p>
       </div>
 
       <Suspense fallback={<div className="panel mt-8 h-96 animate-pulse" />}>

@@ -13,7 +13,7 @@ import { leaderboard, myStanding } from "@/lib/server/profile";
 import { SHOWCASE_COUNT, showcaseBatch } from "@/lib/server/showcase";
 
 const STEPS = [
-  { title: "Look", body: "A photo from somewhere on UCLA's campus. No street names, no hints.", icon: <EyeIcon />, chip: "bg-ucla-blue" },
+  { title: "Look", body: "A photo from somewhere on UCLA's campus.", icon: <EyeIcon />, chip: "bg-ucla-blue" },
   { title: "Pin", body: "Drop a pin on the campus map before the 30 seconds run out.", icon: <PinIcon />, chip: "bg-brick" },
   { title: "Score", body: "Up to 5,000 points a round. Land within 10 meters for a bullseye.", icon: <TargetIcon />, chip: "bg-green" },
 ];
@@ -115,7 +115,7 @@ export default function PlayPage({ searchParams }: PageProps<"/">) {
               Know <span className="text-ucla-gold">UCLA?</span>
             </h1>
             <p className="mt-3 max-w-lg text-lg leading-snug text-[#d5e4f5] sm:text-xl md:mt-4 md:text-[1.4rem] md:leading-snug">
-              Real Bruins know campus inside out. Five rounds to prove you actually go to class.
+              How well do you know WestWood?
             </p>
 
             {/* Phones: the scene between the text and the tiles, its empty sky tucked under the text. Its height
