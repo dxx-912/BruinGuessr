@@ -4,7 +4,7 @@ import { CampusBackdrop } from "@/components/art/CampusScene";
 import { TrophyIcon } from "@/components/art/icons";
 import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
-import { LEADERBOARD_SIZE, ordinal, type LeaderboardRow } from "@/lib/leaderboard";
+import { LEADERBOARD_MAX, LEADERBOARD_PAGE_SIZE, ordinal, pageOfRank, type LeaderboardRow } from "@/lib/leaderboard";
 import { currentUser } from "@/lib/server/auth";
 import { leaderboard } from "@/lib/server/profile";
 import { pageMetadata } from "@/lib/site";
@@ -15,7 +15,7 @@ export const metadata = pageMetadata({
   path: "/leaderboard",
 });
 
-export default function LeaderboardPage() {
+export default function LeaderboardPage({ searchParams }: PageProps<"/leaderboard">) {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
       <CampusBackdrop />
@@ -27,7 +27,7 @@ export default function LeaderboardPage() {
       </div>
 
       <Suspense fallback={<div className="panel mt-8 h-96 animate-pulse" />}>
-        <Board />
+        <Board searchParams={searchParams} />
       </Suspense>
     </section>
   );
@@ -53,9 +53,15 @@ function Row({ row }: { row: LeaderboardRow }) {
   );
 }
 
-async function Board() {
-  const user = await currentUser();
-  const board = await leaderboard(user?.id ?? null, LEADERBOARD_SIZE, 0);
+async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">["searchParams"] }) {
+  const [user, query] = await Promise.all([currentUser(), searchParams]);
+  const asked = typeof query.page === "string" && /^\d{1,6}$/.test(query.page) ? Number(query.page) : 1;
+  const lastPage = LEADERBOARD_MAX / LEADERBOARD_PAGE_SIZE;
+  const page = Math.min(Math.max(1, asked), lastPage);
+  const board = await leaderboard(user?.id ?? null, LEADERBOARD_PAGE_SIZE, (page - 1) * LEADERBOARD_PAGE_SIZE);
+  const pages = Math.max(1, Math.min(lastPage, Math.ceil(board.total / LEADERBOARD_PAGE_SIZE)));
+  const youOnPage = board.rows.some((r) => r.isYou);
+  const youListed = board.you !== null && board.you.rank <= LEADERBOARD_MAX;
 
   if (board.total === 0) {
     return (
@@ -82,6 +88,11 @@ async function Board() {
                 You&rsquo;re <span className="display text-3xl text-ucla-gold">{ordinal(board.you.rank)}</span> of {formatPoints(board.total)} with{" "}
                 <span className="display numeric text-3xl">{formatPoints(board.you.score)}</span>
               </p>
+              {!youOnPage && youListed && (
+                <Link href={`/leaderboard?page=${pageOfRank(board.you.rank)}`} className="btn btn-quiet !py-2 !text-lg">
+                  Show me
+                </Link>
+              )}
             </>
           ) : (
             <p className="flex-1 font-semibold text-sky">Finish a solo game to get on the board.</p>
@@ -103,10 +114,41 @@ async function Board() {
             ))}
           </ol>
         ) : (
-          <p className="px-3 py-6 text-sky">No scores yet.</p>
+          <p className="px-3 py-6 text-sky">Nobody this far down yet.</p>
+        )}
+        {/* The player's own row, pinned under the page when it is somewhere else. */}
+        {board.you && !youOnPage && (
+          <ol className="mt-2 border-t-2 border-dashed border-navy-line pt-2" aria-label="Your rank">
+            <Row row={board.you} />
+          </ol>
         )}
       </div>
 
+      {pages > 1 && (
+        <nav className="mt-4 flex items-center justify-center gap-4" aria-label="Leaderboard pages">
+          {page > 1 ? (
+            <Link href={`/leaderboard?page=${page - 1}`} className="btn btn-quiet !py-2 !text-lg">
+              Previous
+            </Link>
+          ) : (
+            <span className="btn btn-quiet pointer-events-none !py-2 !text-lg opacity-40" aria-hidden>
+              Previous
+            </span>
+          )}
+          <span className="text-sm font-semibold text-sky">
+            Page {page} of {pages}
+          </span>
+          {page < pages ? (
+            <Link href={`/leaderboard?page=${page + 1}`} className="btn btn-quiet !py-2 !text-lg">
+              Next
+            </Link>
+          ) : (
+            <span className="btn btn-quiet pointer-events-none !py-2 !text-lg opacity-40" aria-hidden>
+              Next
+            </span>
+          )}
+        </nav>
+      )}
     </div>
   );
 }

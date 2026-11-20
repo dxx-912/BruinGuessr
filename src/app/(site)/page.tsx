@@ -19,7 +19,7 @@ const STEPS = [
 ];
 
 /** How many players the Play page shows: a podium of three, then rows down to this rank. */
-const TOP = 10;
+const TOP = 5;
 
 /**
  * Where Royce sits in the wide hero, as CSS custom properties on the hero

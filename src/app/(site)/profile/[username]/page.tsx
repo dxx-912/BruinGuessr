@@ -6,7 +6,7 @@ import { CampusBackdrop } from "@/components/art/CampusScene";
 import { CrownIcon, GamesIcon, SwordsIcon, TargetIcon, TrophyIcon } from "@/components/art/icons";
 import { formatDistance, formatPoints } from "@/lib/game/format";
 import { scoreTone, TONE_TEXT } from "@/lib/game/tone";
-import { ordinal } from "@/lib/leaderboard";
+import { ordinal, pageOfRank } from "@/lib/leaderboard";
 import { formatDay, placeLabel, type PlayerProfile, type ProfileGame } from "@/lib/profile";
 import { currentUser } from "@/lib/server/auth";
 import { playerProfile } from "@/lib/server/profile";
@@ -86,7 +86,7 @@ function ProfileView({ profile }: { profile: PlayerProfile }) {
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm font-semibold">
                 {profile.rank ? (
                   <Link
-                    href={`/leaderboard`}
+                    href={`/leaderboard?page=${pageOfRank(profile.rank)}`}
                     className="rounded-full border-2 border-ucla-gold/70 bg-ucla-gold/10 px-2.5 py-0.5 text-ucla-gold hover:bg-ucla-gold hover:text-night"
                   >
                     {ordinal(profile.rank)} on the leaderboard

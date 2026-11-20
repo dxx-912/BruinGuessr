@@ -16,8 +16,13 @@ export type Leaderboard = {
   you: (LeaderboardRow & { gameId: string }) | null;
 };
 
-/** How many rows the leaderboard shows. Everyone below is told only their rank. */
-export const LEADERBOARD_SIZE = 10;
+export const LEADERBOARD_PAGE_SIZE = 50;
+
+/** The leaderboard lists this many players at most. */
+export const LEADERBOARD_MAX = 100;
+
+/** The page (1-based) that holds a rank. */
+export const pageOfRank = (rank: number) => Math.floor((rank - 1) / LEADERBOARD_PAGE_SIZE) + 1;
 
 /** "1st", "2nd", "3rd", "11th", "22nd"… */
 export function ordinal(n: number): string {
