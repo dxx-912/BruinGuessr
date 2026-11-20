@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ordinal, pageOfRank, type Leaderboard } from "@/lib/leaderboard";
+import { ordinal, type Leaderboard } from "@/lib/leaderboard";
 import { formatDistance, formatPoints, gameVerdict } from "@/lib/game/format";
 import { maxTotal, type GameState } from "@/lib/game/types";
 import { scoreTone, TONE_TEXT } from "@/lib/game/tone";
@@ -51,7 +51,7 @@ function StandingLine({ gameId }: { gameId: string }) {
       ) : (
         <span className="text-sky">Your best: {formatPoints(you.score)}.</span>
       )}
-      <Link href={`/leaderboard?page=${pageOfRank(you.rank)}`} className="text-paper underline decoration-sky decoration-2 underline-offset-4 hover:decoration-ucla-gold">
+      <Link href={`/leaderboard`} className="text-paper underline decoration-sky decoration-2 underline-offset-4 hover:decoration-ucla-gold">
         {ordinal(you.rank)} of {formatPoints(standing.total)} on the leaderboard
       </Link>
     </p>

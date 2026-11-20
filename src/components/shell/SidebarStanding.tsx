@@ -2,7 +2,7 @@ import Link from "next/link";
 import { TrophyIcon } from "@/components/art/icons";
 import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
-import { ordinal, pageOfRank } from "@/lib/leaderboard";
+import { ordinal } from "@/lib/leaderboard";
 import { myStanding } from "@/lib/server/profile";
 
 const CARD = "rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgb(39_116_174/0.18),rgb(6_24_43/0.55))] p-4 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]";
@@ -43,7 +43,7 @@ export default async function SidebarStanding() {
 
   return (
     <Link
-      href={`/leaderboard?page=${pageOfRank(you.rank)}`}
+      href={`/leaderboard`}
       className={`${CARD} group block transition-colors hover:border-sky/40 focus-visible:outline-2 focus-visible:outline-paper`}
     >
       <p className="flex items-center gap-2 text-sm font-semibold text-sky">
