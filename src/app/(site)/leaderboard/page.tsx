@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CampusBackdrop } from "@/components/art/CampusScene";
 import { TrophyIcon } from "@/components/art/icons";
 import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
-import { LEADERBOARD_MAX, LEADERBOARD_PAGE_SIZE, ordinal, pageOfRank, type LeaderboardRow } from "@/lib/leaderboard";
+import { LEADERBOARD_PAGE_SIZE, ordinal, pageOfRank, type LeaderboardRow } from "@/lib/leaderboard";
 import { currentUser } from "@/lib/server/auth";
 import { leaderboard, myLeaderboardRemoval } from "@/lib/server/profile";
 import { pageMetadata } from "@/lib/site";
@@ -56,15 +57,14 @@ function Row({ row }: { row: LeaderboardRow }) {
 async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">["searchParams"] }) {
   const [user, query] = await Promise.all([currentUser(), searchParams]);
   const asked = typeof query.page === "string" && /^\d{1,6}$/.test(query.page) ? Number(query.page) : 1;
-  const lastPage = LEADERBOARD_MAX / LEADERBOARD_PAGE_SIZE;
-  const page = Math.min(Math.max(1, asked), lastPage);
+  const page = Math.max(1, asked);
   const [board, removal] = await Promise.all([
     leaderboard(user?.id ?? null, LEADERBOARD_PAGE_SIZE, (page - 1) * LEADERBOARD_PAGE_SIZE),
     user ? myLeaderboardRemoval(user.id) : null,
   ]);
-  const pages = Math.max(1, Math.min(lastPage, Math.ceil(board.total / LEADERBOARD_PAGE_SIZE)));
+  const pages = Math.max(1, Math.ceil(board.total / LEADERBOARD_PAGE_SIZE));
+  if (page > pages) redirect(`/leaderboard?page=${pages}`);
   const youOnPage = board.rows.some((r) => r.isYou);
-  const youListed = board.you !== null && board.you.rank <= LEADERBOARD_MAX;
 
   if (board.total === 0) {
     return (
@@ -95,7 +95,7 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
                 You&rsquo;re <span className="display text-3xl text-ucla-gold">{ordinal(board.you.rank)}</span> of {formatPoints(board.total)} with{" "}
                 <span className="display numeric text-3xl">{formatPoints(board.you.score)}</span>
               </p>
-              {!youOnPage && youListed && (
+              {!youOnPage && (
                 <Link href={`/leaderboard?page=${pageOfRank(board.you.rank)}`} className="btn btn-quiet !py-2 !text-lg">
                   Show me
                 </Link>

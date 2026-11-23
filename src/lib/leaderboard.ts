@@ -18,9 +18,6 @@ export type Leaderboard = {
 
 export const LEADERBOARD_PAGE_SIZE = 50;
 
-/** The leaderboard lists this many players at most. */
-export const LEADERBOARD_MAX = 100;
-
 /** The page (1-based) that holds a rank. */
 export const pageOfRank = (rank: number) => Math.floor((rank - 1) / LEADERBOARD_PAGE_SIZE) + 1;
 
