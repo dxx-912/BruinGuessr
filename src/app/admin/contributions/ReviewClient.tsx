@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AdminTabs from "@/components/AdminTabs";
 import PinEditor, { type MapDot } from "@/components/map/PinEditor";
 import { compassPoint } from "@/lib/contribute/compass";
 import { REJECT_REASONS, insideCampus } from "@/lib/contribute/rules";
@@ -184,6 +185,7 @@ export default function ReviewClient({ adminName }: { adminName: string }) {
           </Link>
         </div>
       </header>
+      <AdminTabs active="contributions" />
 
       {notice && (
         <p role="status" className={`px-4 py-2 text-sm font-semibold ${notice.tone === "ok" ? "bg-green text-paper" : "bg-alarm text-night"}`}>
