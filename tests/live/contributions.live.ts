@@ -89,13 +89,12 @@ describe("contributions in the database", () => {
     expect(bucket.data?.public).toBe(false);
   });
 
-  it("holds the limit of 10 a day when 15 arrive at once", async () => {
+  it("has no per-account limit: 40 at once are all accepted", async () => {
     const user = await account("burst");
-    const results = await Promise.all(Array.from({ length: 15 }, () => submit(user)));
-    expect(results.filter((r) => r.ok)).toHaveLength(10);
-    expect(results.filter((r) => r.error === "daily_limit")).toHaveLength(5);
-    const quota = await rpc<{ last24h: number; waiting: number }>("contribution_quota", { p_user: user });
-    expect(quota).toMatchObject({ last24h: 10, waiting: 10 });
+    const results = await Promise.all(Array.from({ length: 40 }, () => submit(user)));
+    expect(results.filter((r) => r.ok)).toHaveLength(40);
+    const waiting = await admin.from("contributions").select("id", { count: "exact", head: true }).eq("contributor_id", user).eq("status", "waiting");
+    expect(waiting.count).toBe(40);
   });
 
   it("refuses accounts without a username, and accuracy worse than 40 m", async () => {
@@ -314,9 +313,8 @@ describe.skipIf(!serverUp)("contributions over HTTP", () => {
   });
 
   it("lists the photo only for its contributor", async () => {
-    const mine = (await (await get(contributor.cookie, "/api/contributions")).json()) as { items: { id: string; status: string }[]; quota: { last24h: number } };
+    const mine = (await (await get(contributor.cookie, "/api/contributions")).json()) as { items: { id: string; status: string }[] };
     expect(mine.items.find((i) => i.id === submitted)?.status).toBe("waiting");
-    expect(mine.quota.last24h).toBe(1);
     expect(JSON.stringify(mine)).not.toContain(String(spot.lat).slice(0, 7));
     const thumb = await get(contributor.cookie, `/api/contributions/${submitted}/thumb`);
     expect(thumb.status).toBe(200);

@@ -8,8 +8,10 @@ import { formatDistance, formatPoints } from "@/lib/game/format";
 import { scoreTone, TONE_TEXT } from "@/lib/game/tone";
 import { ordinal, pageOfRank } from "@/lib/leaderboard";
 import { formatDay, placeLabel, type PlayerProfile, type ProfileGame } from "@/lib/profile";
+import { currentAdmin } from "@/lib/server/admin";
 import { currentUser } from "@/lib/server/auth";
-import { playerProfile } from "@/lib/server/profile";
+import { leaderboardRemoval, playerProfile, type LeaderboardRemoval } from "@/lib/server/profile";
+import LeaderboardRemovalPanel from "./LeaderboardRemovalPanel";
 
 const USERNAME = /^[A-Za-z0-9_]{3,16}$/;
 
@@ -32,7 +34,16 @@ async function Profile({ params }: { params: PageProps<"/profile/[username]">["p
   const viewer = await currentUser();
   const profile = await playerProfile(username, viewer?.id ?? null);
   if (!profile) notFound();
-  return <ProfileView profile={profile} />;
+  // Only the player themselves and admins get to see a removal and its reason.
+  const admin = viewer ? await currentAdmin() : null;
+  const removal = admin || profile.isYou ? await leaderboardRemoval(profile.username) : null;
+  return (
+    <>
+      <ProfileView profile={profile} removed={removal !== null} />
+      {removal && profile.isYou && <RemovalNotice removal={removal} />}
+      {admin && !profile.isYou && <LeaderboardRemovalPanel username={profile.username} removal={removal} />}
+    </>
+  );
 }
 
 function Stat({ label, value, icon, chip, accent = false }: { label: string; value: string; icon: React.ReactNode; chip: string; accent?: boolean }) {
@@ -69,7 +80,17 @@ function AverageRing({ average }: { average: number | null }) {
   );
 }
 
-function ProfileView({ profile }: { profile: PlayerProfile }) {
+function RemovalNotice({ removal }: { removal: LeaderboardRemoval }) {
+  return (
+    <div role="note" className="panel mt-3 border-alarm p-4">
+      <p className="heading text-2xl">Removed from the leaderboard</p>
+      <p className="mt-1">{removal.reason}</p>
+      <p className="mt-1 text-sm text-sky">Removed {formatDay(removal.at)}. Your games and profile are unchanged.</p>
+    </div>
+  );
+}
+
+function ProfileView({ profile, removed }: { profile: PlayerProfile; removed: boolean }) {
   const { stats } = profile;
   const dash = "–";
   return (
@@ -92,7 +113,7 @@ function ProfileView({ profile }: { profile: PlayerProfile }) {
                     {ordinal(profile.rank)} on the leaderboard
                   </Link>
                 ) : (
-                  <span className="rounded-full border-2 border-navy-line px-2.5 py-0.5 text-sky">Not on the leaderboard yet</span>
+                  <span className="rounded-full border-2 border-navy-line px-2.5 py-0.5 text-sky">{removed ? "Removed from the leaderboard" : "Not on the leaderboard yet"}</span>
                 )}
                 <span className="text-sky">Joined {formatDay(profile.joinedAt)}</span>
               </div>

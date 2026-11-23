@@ -1,4 +1,4 @@
-import { contributionQuota, myContributions, submitContribution, type SubmitProblem } from "@/lib/server/contributions";
+import { myContributions, submitContribution, type SubmitProblem } from "@/lib/server/contributions";
 import { fail, json, requireUser, sameOrigin } from "@/lib/server/http";
 import { usernameOf } from "@/lib/server/profile";
 
@@ -19,19 +19,16 @@ const STATUS: Record<SubmitProblem, number> = {
   file_size: 413,
   dimensions: 400,
   blurry: 400,
-  daily_limit: 429,
-  waiting_limit: 429,
   account_required: 403,
   no_username: 403,
   server_error: 500,
 };
 
-/** GET /api/contributions → the signed-in player's own submissions and how many more they may send. */
+/** GET /api/contributions → the signed-in player's own submissions. */
 export async function GET() {
   const user = await requireUser();
   if (user instanceof Response) return user;
-  const [items, quota] = await Promise.all([myContributions(user.id), contributionQuota(user.id)]);
-  return json({ items, quota });
+  return json({ items: await myContributions(user.id) });
 }
 
 /**

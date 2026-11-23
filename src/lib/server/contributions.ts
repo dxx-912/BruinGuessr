@@ -14,7 +14,7 @@ import {
   trueHeading,
   type MetaProblem,
 } from "@/lib/contribute/rules";
-import type { MyContribution, NearbyImage, QueueItem, Quota } from "@/lib/contribute/types";
+import type { MyContribution, NearbyImage, QueueItem } from "@/lib/contribute/types";
 import { PIPELINE } from "@/lib/pipeline/config";
 import { hasMetadata, sharpnessOf } from "@/lib/pipeline/quality";
 import { PHOTO_BUCKET } from "./game";
@@ -29,8 +29,6 @@ export type SubmitProblem =
   | "file_size"
   | "dimensions"
   | "blurry"
-  | "daily_limit"
-  | "waiting_limit"
   | "account_required"
   | "no_username"
   | "server_error";
@@ -66,8 +64,6 @@ async function download(bucket: string, path: string): Promise<Buffer | null> {
 // The contributor's side
 // ---------------------------------------------------------------------------
 
-export const contributionQuota = (userId: string) => rpc<Quota>("contribution_quota", { p_user: userId });
-
 export const myContributions = (userId: string) => rpc<MyContribution[]>("my_contributions", { p_user: userId, p_limit: 60 });
 
 /** The first bytes say what a file really is; the name and the browser's word for it do not count. */
@@ -100,11 +96,6 @@ export async function submitContribution(
   const checked = checkMeta(rawMeta, Date.now());
   if ("problem" in checked) return no(checked.problem);
   const meta = checked.meta;
-
-  // Cheap first: is there room under the limits? (Checked again under a lock when storing.)
-  const quota = await contributionQuota(userId);
-  if (quota.last24h >= quota.dailyLimit) return no("daily_limit");
-  if (quota.waiting >= quota.waitingLimit) return no("waiting_limit");
 
   if (file.size > MAX_UPLOAD_BYTES || file.size < MIN_UPLOAD_BYTES) return no("file_size");
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -168,7 +159,7 @@ export async function submitContribution(
   }
   if (!result.ok || !result.id) {
     await removeFiles(CONTRIBUTION_BUCKET, [path]);
-    const known: SubmitProblem[] = ["daily_limit", "waiting_limit", "account_required", "no_username", "bad_request"];
+    const known: SubmitProblem[] = ["account_required", "no_username", "bad_request"];
     return no(known.includes(result.error as SubmitProblem) ? (result.error as SubmitProblem) : result.error === "bad_accuracy" ? "too_inaccurate" : "server_error");
   }
   return { ok: true, id: result.id };

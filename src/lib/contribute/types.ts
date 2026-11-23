@@ -12,7 +12,6 @@ export type MyContribution = {
   reason: string | null;
 };
 
-export type Quota = { last24h: number; waiting: number; dailyLimit: number; waitingLimit: number };
 
 /** A waiting submission on the review page (admins only). Times in ms since 1970. */
 export type QueueItem = {

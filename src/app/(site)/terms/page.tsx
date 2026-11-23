@@ -81,8 +81,7 @@ export default function TermsPage() {
             the game.
           </li>
           <li>
-            A reviewer checks every photo and may reject it, move its pin, blur parts of it, or remove it later. You can send up to 10 photos a day and
-            have up to 30 waiting at once.
+            A reviewer checks every photo and may reject it, move its pin, blur parts of it, or remove it later.
           </li>
           <li>Your own photos never come up in your games, or in any versus game you play in.</li>
         </ul>

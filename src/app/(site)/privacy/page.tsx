@@ -87,7 +87,7 @@ export default function PrivacyPage() {
           <strong>Who sees it and for how long:</strong> a waiting photo is kept unblurred in private storage that only the site&rsquo;s reviewers
           (admins) can open; it and its details are seen only by them, and the photo by you in your list. A reviewer checks it for faces: the marks
           from your browser show as suggested blur boxes, which the reviewer keeps, removes or adds to. If it is not accepted, the photo is deleted at
-          once; the record without the photo stays so you can see the reason, and it counts toward the limit of 10 photos a day. If it is accepted, the
+          once; the record without the photo stays so you can see the reason. If it is accepted, the
           server blurs the boxes the reviewer confirmed and makes a copy (at most 1,600 pixels across, no embedded data) that joins the game; the
           unblurred waiting file is then deleted, and the position becomes that photo&rsquo;s answer. Only the blurred copy is ever shown in a game. Like every photo in the game, its position is never shown before a guess. After a guess, players see your
           username as the credit. The photo stays in the game until it is removed or you delete your account. Reviewers&rsquo; decisions (approved,

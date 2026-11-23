@@ -131,7 +131,7 @@ Guest play (FIXED)
 
 Play page (home)
 - Headline: "Know UCLA?"
-- Subheading: "Real Bruins know campus inside out. Five rounds to prove you actually go to class."
+- Subheading: "How well do you know WestWood?"
 - Two large buttons, the main focus of the page:
   - Solo, with "See how high you can score on the leaderboard."
   - Versus, with "Join or host a lobby to play with friends!"
@@ -191,7 +191,7 @@ Acceptance rules (FIXED, checked again on the server)
 - GPS accuracy up to **40 m** is accepted; anything worse is rejected. A capture with accuracy worse than **25 m** is flagged for a pin check in review.
 - The position must be inside `campus.geojson`. No buffer ring for contributions.
 - File checks: JPEG or WebP only, size and dimension limits, a minimum sharpness (the pipeline's measure). The server re-encodes with sharp, which strips all metadata, and runs the existing metadata check before storing anything.
-- Rate limits, per account: **10 submissions per rolling 24 hours** and **at most 30 waiting** at once. Both are columns in `settings`, checked in the database under a lock.
+- No per-account limit on submissions or on how many wait at once (the 10-a-day and 30-waiting limits were removed in `20261119000100_no_contribution_limits.sql`).
 
 License (FIXED)
 - Contributors tick a checkbox licensing the photo under **CC BY-SA 4.0**, credited by their username. The time of acceptance is stored with the submission.

@@ -123,3 +123,38 @@ export async function memberSince(userId: string): Promise<number | null> {
   if (error) throw new Error(`[profile] could not read the join date: ${error.message}`);
   return data?.created_at ? Date.parse(data.created_at) : null;
 }
+
+export type LeaderboardRemoval = { reason: string; at: number };
+
+/** Why a player was taken off the leaderboard, or null when they are on it (or have no such profile). */
+export async function leaderboardRemoval(username: string): Promise<LeaderboardRemoval | null> {
+  const { data, error } = await adminClient()
+    .from("profiles")
+    .select("leaderboard_removed_at, leaderboard_removed_reason")
+    .ilike("username", username.replace(/[%_\\]/g, "\\$&"))
+    .eq("is_guest", false)
+    .maybeSingle();
+  if (error) throw new Error(`[profile] could not read the removal: ${error.message}`);
+  if (!data?.leaderboard_removed_at || !data.leaderboard_removed_reason) return null;
+  return { reason: data.leaderboard_removed_reason, at: Date.parse(data.leaderboard_removed_at) };
+}
+
+/** The signed-in player's own removal, if any (for the leaderboard page). */
+export async function myLeaderboardRemoval(userId: string): Promise<LeaderboardRemoval | null> {
+  const { data, error } = await adminClient().from("profiles").select("leaderboard_removed_at, leaderboard_removed_reason").eq("id", userId).maybeSingle();
+  if (error) throw new Error(`[profile] could not read the removal: ${error.message}`);
+  if (!data?.leaderboard_removed_at || !data.leaderboard_removed_reason) return null;
+  return { reason: data.leaderboard_removed_reason, at: Date.parse(data.leaderboard_removed_at) };
+}
+
+/** Takes a player off the leaderboard (reason set) or puts them back (reason null). False if there is no such player. */
+export async function setLeaderboardRemoval(username: string, reason: string | null): Promise<boolean> {
+  const { data, error } = await adminClient()
+    .from("profiles")
+    .update(reason ? { leaderboard_removed_at: new Date().toISOString(), leaderboard_removed_reason: reason } : { leaderboard_removed_at: null, leaderboard_removed_reason: null })
+    .ilike("username", username.replace(/[%_\\]/g, "\\$&"))
+    .eq("is_guest", false)
+    .select("id");
+  if (error) throw new Error(`[profile] could not update the removal: ${error.message}`);
+  return data.length === 1;
+}

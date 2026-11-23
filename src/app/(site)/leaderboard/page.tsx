@@ -6,7 +6,7 @@ import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
 import { LEADERBOARD_MAX, LEADERBOARD_PAGE_SIZE, ordinal, pageOfRank, type LeaderboardRow } from "@/lib/leaderboard";
 import { currentUser } from "@/lib/server/auth";
-import { leaderboard } from "@/lib/server/profile";
+import { leaderboard, myLeaderboardRemoval } from "@/lib/server/profile";
 import { pageMetadata } from "@/lib/site";
 
 export const metadata = pageMetadata({
@@ -58,7 +58,10 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
   const asked = typeof query.page === "string" && /^\d{1,6}$/.test(query.page) ? Number(query.page) : 1;
   const lastPage = LEADERBOARD_MAX / LEADERBOARD_PAGE_SIZE;
   const page = Math.min(Math.max(1, asked), lastPage);
-  const board = await leaderboard(user?.id ?? null, LEADERBOARD_PAGE_SIZE, (page - 1) * LEADERBOARD_PAGE_SIZE);
+  const [board, removal] = await Promise.all([
+    leaderboard(user?.id ?? null, LEADERBOARD_PAGE_SIZE, (page - 1) * LEADERBOARD_PAGE_SIZE),
+    user ? myLeaderboardRemoval(user.id) : null,
+  ]);
   const pages = Math.max(1, Math.min(lastPage, Math.ceil(board.total / LEADERBOARD_PAGE_SIZE)));
   const youOnPage = board.rows.some((r) => r.isYou);
   const youListed = board.you !== null && board.you.rank <= LEADERBOARD_MAX;
@@ -82,7 +85,11 @@ async function Board({ searchParams }: { searchParams: PageProps<"/leaderboard">
           <span className="chip bg-ucla-blue">
             <TrophyIcon />
           </span>
-          {board.you ? (
+          {removal ? (
+            <p className="flex-1 font-semibold">
+              You were removed from the leaderboard: <span className="font-normal">{removal.reason}</span>
+            </p>
+          ) : board.you ? (
             <>
               <p className="flex-1 font-semibold">
                 You&rsquo;re <span className="display text-3xl text-ucla-gold">{ordinal(board.you.rank)}</span> of {formatPoints(board.total)} with{" "}

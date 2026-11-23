@@ -17,7 +17,7 @@ import {
   scaledSize,
   type FixState,
 } from "@/lib/contribute/rules";
-import type { MyContribution, Quota } from "@/lib/contribute/types";
+import type { MyContribution } from "@/lib/contribute/types";
 import { formatDay } from "@/lib/profile";
 
 type Fix = { lat: number; lng: number; accuracy: number; at: number };
@@ -80,8 +80,6 @@ const SUBMIT_PROBLEMS: Record<string, string> = {
   file_size: "This photo is too large to send. Take it again.",
   dimensions: "This photo's size doesn't work for the game. Take it again.",
   blurry: "The photo came out blurry. Hold still and try again.",
-  daily_limit: "You've sent as many photos as you can in 24 hours. Come back tomorrow.",
-  waiting_limit: "You have as many photos waiting as you can. Once some are reviewed you can send more.",
   license: "Tick the license box to send the photo.",
   people_answer: "Answer whether there are people in the photo.",
   server_error: "Something went wrong on our side. Try again in a moment.",
@@ -101,13 +99,13 @@ function useDevice(): "unknown" | "touch" | "desktop" {
 
 /** Answers from the server for the "Your photos" list. */
 function useMine() {
-  const [data, setData] = useState<{ items: MyContribution[]; quota: Quota } | null>(null);
+  const [data, setData] = useState<{ items: MyContribution[] } | null>(null);
   const [failed, setFailed] = useState(false);
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/contributions", { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
-      setData((await res.json()) as { items: MyContribution[]; quota: Quota });
+      setData((await res.json()) as { items: MyContribution[] });
       setFailed(false);
     } catch {
       setFailed(true);
@@ -416,9 +414,6 @@ export default function ContributeClient({ username }: { username: string }) {
     }
   };
 
-  const quota = mine.data?.quota;
-  const full = quota ? quota.last24h >= quota.dailyLimit || quota.waiting >= quota.waitingLimit : false;
-
   return (
     <div className="space-y-5">
       <section className="panel overflow-hidden" aria-labelledby="contribute-title">
@@ -451,10 +446,9 @@ export default function ContributeClient({ username }: { username: string }) {
               </div>
             ) : (
               <div className="mt-6">
-                <button type="button" className="btn btn-gold w-full sm:w-auto" onClick={start} disabled={device === "unknown" || full}>
+                <button type="button" className="btn btn-gold w-full sm:w-auto" onClick={start} disabled={device === "unknown"}>
                   <PinIcon className="h-6 w-6" /> Start
                 </button>
-                {full && <p className="mt-3 font-semibold text-hurt">{quotaLine(quota!)}</p>}
                 <p className="mt-3 text-sm text-sky">Your browser will ask to use your location, then your camera.</p>
               </div>
             )}
@@ -635,10 +629,9 @@ export default function ContributeClient({ username }: { username: string }) {
               Sent. Thank you!
             </p>
             <p className="mt-2 text-sky">It&rsquo;s waiting for review. You&rsquo;ll see it go live in Your photos below.</p>
-            <button type="button" className="btn btn-gold mt-5" onClick={() => setStage(streamRef.current ? { kind: "camera" } : { kind: "intro" })} disabled={full}>
+            <button type="button" className="btn btn-gold mt-5" onClick={() => setStage(streamRef.current ? { kind: "camera" } : { kind: "intro" })}>
               Take another
             </button>
-            {full && quota && <p className="mt-3 font-semibold text-hurt">{quotaLine(quota)}</p>}
           </div>
         )}
 
@@ -679,11 +672,6 @@ function fixMessage(state: FixState, fix: Fix | null): string {
   }
 }
 
-function quotaLine(q: Quota): string {
-  if (q.waiting >= q.waitingLimit) return `You have ${q.waiting} photos waiting for review. Once some are reviewed you can send more.`;
-  return `You've sent ${q.last24h} photos in the last 24 hours, the most for now. Come back tomorrow.`;
-}
-
 function GpsChip({ fix, state }: { fix: Fix | null; state: FixState }) {
   const tone = state === "ok" ? (fix && fix.accuracy > PIN_CHECK_ACCURACY_M ? "bg-ucla-gold text-night" : "bg-leaf text-night") : "bg-alarm text-night";
   return (
@@ -712,7 +700,7 @@ const STATUS = {
 } as const;
 
 /** The player's own submissions. Only they see this list. */
-function YourPhotos({ data, failed }: { data: { items: MyContribution[]; quota: Quota } | null; failed: boolean }) {
+function YourPhotos({ data, failed }: { data: { items: MyContribution[] } | null; failed: boolean }) {
   return (
     <section className="panel p-4 sm:p-5" aria-labelledby="your-photos">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-navy-line pb-3">
@@ -720,9 +708,7 @@ function YourPhotos({ data, failed }: { data: { items: MyContribution[]; quota: 
           Your photos
         </h2>
         {data && (
-          <p className="numeric text-sm text-sky">
-            {data.quota.last24h} of {data.quota.dailyLimit} today · {data.quota.waiting} waiting
-          </p>
+          <p className="numeric text-sm text-sky">{data.items.filter((item) => item.status === "waiting").length} waiting</p>
         )}
       </div>
       {failed && !data && <p className="mt-3 text-sky">Your photos couldn&rsquo;t load. Refresh to try again.</p>}

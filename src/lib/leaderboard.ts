@@ -30,3 +30,6 @@ export function ordinal(n: number): string {
   if (tens >= 11 && tens <= 13) return `${n}th`;
   return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 }
+
+/** The longest reason an admin can give for taking a player off the leaderboard. */
+export const REMOVAL_REASON_MAX = 300;
