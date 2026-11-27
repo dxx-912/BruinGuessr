@@ -9,6 +9,7 @@ import { PinMark } from "@/components/Wordmark";
 import RankDisc from "@/components/RankDisc";
 import { formatPoints } from "@/lib/game/format";
 import type { LeaderboardRow } from "@/lib/leaderboard";
+import { formatDay } from "@/lib/profile";
 import { leaderboard, myStanding } from "@/lib/server/profile";
 import { SHOWCASE_COUNT, showcaseBatch } from "@/lib/server/showcase";
 
@@ -380,6 +381,15 @@ async function TopPlayers() {
   );
 }
 
+/** The day the player's best score was reached, as small text under their name. */
+function ReachedOn({ ms, className }: { ms: number; className: string }) {
+  return (
+    <time dateTime={new Date(ms).toISOString()} className={`text-xs text-sky ${className}`}>
+      {formatDay(ms)}
+    </time>
+  );
+}
+
 function PodiumSpot({ rank, row }: { rank: 1 | 2 | 3; row: LeaderboardRow | null }) {
   const medal = MEDAL[rank];
   const first = rank === 1;
@@ -395,6 +405,7 @@ function PodiumSpot({ rank, row }: { rank: 1 | 2 | 3; row: LeaderboardRow | null
         {row ? row.username[0] : "?"}
       </span>
       <span className={`mt-3 block w-full font-semibold ${row ? "truncate" : "text-balance leading-tight text-out"} ${first ? "sm:text-lg" : ""}`}>{name}</span>
+      {row && <ReachedOn ms={row.reachedAt} className="block" />}
       <span className={`display numeric block ${first ? "text-2xl sm:text-4xl" : "text-xl sm:text-3xl"} ${row ? "text-ucla-gold" : "text-out"}`}>
         {row ? formatPoints(row.score) : "—"}
       </span>
@@ -422,7 +433,10 @@ function PlayerRow({ rank, row }: { rank: number; row: LeaderboardRow | null }) 
   const inner = (
     <>
       <RankDisc rank={rank} />
-      <span className={`min-w-0 flex-1 truncate font-semibold ${row ? "" : "text-out"}`}>{row ? row.username : "Your name here"}</span>
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate font-semibold ${row ? "" : "text-out"}`}>{row ? row.username : "Your name here"}</span>
+        {row && <ReachedOn ms={row.reachedAt} className="block" />}
+      </span>
       {row?.isYou && <span className="rounded-full bg-ucla-blue px-2 text-xs font-semibold">You</span>}
       <span className={`display numeric text-2xl ${row ? "text-ucla-gold" : "text-out"}`}>{row ? formatPoints(row.score) : "—"}</span>
     </>
